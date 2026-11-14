@@ -13,7 +13,9 @@ _TYPE = re.compile(r"^(str|int|float|bool|list\[(?:str|int|float|bool|[A-Za-z_][
 _RESERVED = {"str", "int", "float", "bool", "list", "BaseModel", "Field", "ValidationError",
              "LlmAgent", "SequentialAgent", "MCPToolset", "SseConnectionParams", "OpenAPIToolset",
              "AgentPipelineExecutionError", "OUTPUT_SCHEMAS", "build_pipeline", "httpx",
-             "before_model_callback", "before_tool_callback", "_validate_output"}
+             "before_model_callback", "before_tool_callback", "_validate_output",
+             "set_model_response", "include_contents", "before_agent_callback",
+             "INPUT_SCHEMAS", "_validate_input", "INPUT_KEYS", "inspect_for_pii"}
 
 
 def _identifier(value: str) -> bool:
@@ -77,6 +79,9 @@ class AgentSpec(BaseModel):
     openapi_bindings: list[OpenAPIBinding] = Field(default_factory=list)
     output_key: str
     output_schema_ref: str
+    input_key: str | None = None
+    input_schema_ref: str | None = None
+    include_contents: Literal["default", "none"] = "default"
 
 
 class Orchestration(BaseModel):
@@ -142,6 +147,18 @@ class PipelineSpec(BaseModel):
             path = f"orchestration.agents.{index}"
             if agent.output_schema_ref not in self.schemas:
                 raise ValueError(f"{path}.output_schema_ref: unknown schema {agent.output_schema_ref}")
+            if (agent.input_key is None) != (agent.input_schema_ref is None):
+                raise ValueError(f"{path}: input_key and input_schema_ref must be declared together")
+            if agent.input_key is not None:
+                earlier_keys = [other.output_key for other in self.orchestration.agents[:index]]
+                if not _identifier(agent.input_key) or agent.input_key not in earlier_keys:
+                    raise ValueError(f"{path}.input_key: must match the output_key of an earlier agent")
+                if agent.input_schema_ref not in self.schemas:
+                    raise ValueError(f"{path}.input_schema_ref: unknown schema {agent.input_schema_ref}")
+                # Typed input arrives in the user turn, never interpolated in the system prompt.
+                all_output_keys = [other.output_key for other in self.orchestration.agents]
+                if any("{" + key + "}" in agent.instruction for key in all_output_keys):
+                    raise ValueError(f"{path}.instruction: must not interpolate state placeholders {{{{{agent.input_key}}}}}")
             for binding in agent.mcp_bindings:
                 if binding.server_id not in server_ids:
                     raise ValueError(f"{path}.mcp_bindings.server_id: unknown server {binding.server_id}")

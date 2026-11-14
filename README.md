@@ -2,7 +2,7 @@
 
 Implementação do [desafio original](docs/DESAFIO_SENIOR_IA.pdf). A [especificação técnica](docs/especificacao-tecnica-e-arquitetura.md) documenta os contratos e decisões.
 
-> **Estado validado:** 68 testes automatizados mock-only passam; os quatro serviços Docker ficaram healthy, com 150 exames fictícios no catálogo. OCR local, busca híbrida e preflight foram exercitados; uma execução real com `gemini-2.5-flash`, autorizada pelo usuário, registrou **6 exames fictícios** como `CONFIRMED` (protocolo e GET confirmados). Isso é uma demonstração com **uma imagem sintética**, não uma garantia de acurácia, privacidade ou disponibilidade para dados reais.
+> **Escopo atual:** demonstração com pedido **digitado, nítido e bem enquadrado**. Só há novo registro quando todos os termos extraídos são encontrados; termos sem correspondência bloqueiam o POST. As capturas em `evidence/` precedem esta política e demonstram a versão anterior, que aceitava registros parciais. O catálogo continua 100% fictício (150 exames `MOCK-*`). Uma suíte mock-only e o drift-guard validam o código atual; o novo fluxo ainda não foi reexecutado com Gemini.
 
 ## Fluxo e contratos
 
@@ -10,9 +10,9 @@ O transpilador (`transpiler/`) valida [`specs/clinical_agent_spec.json`](specs/c
 
 - **`mcp-ocr` (:8001 SSE):** recebe a imagem por volume somente-leitura, faz OCR local com RapidOCR e mascara PII antes de passar texto ao LLM. Se a confiança for baixa, faltar o analisador português local ou restar PII detectável, bloqueia. O guardrail usa regex BR, Presidio/spaCy e léxico do catálogo para reduzir falsos positivos de nomes de exames. Os callbacks do ADK exigem evidências reais de cada ferramenta antes do próximo passo.
 - **`mcp-rag` (:8002 SSE):** reconcilia nomes com catálogo **sintético** de 150 exames em PostgreSQL/pgvector + pg_trgm; FastEmbed usa o export ONNX quantizado do E5-small (`Xenova/multilingual-e5-small`, 384 dimensões, MEAN + L2). Busca híbrida: α=0,65 e limiar τ=0,80. `MOCK-*` **não é TUSS oficial**; `tuss_code` é nome legado de campo.
-- **`scheduling-api` (:8000):** registra atomicamente apenas exames encontrados. `PARTIAL` lista os não encontrados; nenhum encontrado = nenhum POST. `CONFIRMED` significa **solicitação registrada, não horário reservado**. POST e GET por protocolo retornam o contrato completo. Swagger: <http://localhost:8000/docs>.
+- **`scheduling-api` (:8000):** aceita apenas POST com lista de exames não vazia e `unmatched_terms` vazio; novos registros são sempre `CONFIRMED` (**solicitação registrada, não reserva de horário**). Resultados parciais do RAG causam erro sem POST. GET preserva leitura de registros `PARTIAL` criados pela versão anterior. Swagger: <http://localhost:8000/docs>.
 
-**Não usar com dados reais ou para orientação clínica.** A imagem [`assets/pedido_medico_teste.png`](assets/pedido_medico_teste.png), o catálogo e as orientações de preparo/jejum são fictícios. O adendo na imagem usa fonte itálica, não manuscrito real.
+**Não usar com dados reais ou para orientação clínica.** A imagem principal [`assets/pedido_medico_teste.png`](assets/pedido_medico_teste.png) contém somente exames digitados e enumerados. O catálogo e o preparo/jejum são fictícios. A validação do OCR exige seção `Solicito:` e ao menos uma linha numerada legível, mas **não garante** detectar uma foto cortada que ainda contenha esses sinais; a qualidade e o enquadramento são pré-condições da demonstração.
 
 ## Setup e testes locais (somente mocks)
 
@@ -60,7 +60,7 @@ docker compose run --rm agent-cli python -m runtime.cli run \
 | [`06-tests.txt`](evidence/06-tests.txt) | 68 testes, cobertura e Ruff. |
 | [`07-code-review.md`](evidence/07-code-review.md) | Revisão de código, correções e limitações residuais. |
 
-A captura `05-run-full.txt` corresponde **apenas à execução final bem-sucedida**. Tentativas anteriores falharam fechado durante o diagnóstico e revelaram incompatibilidades reais com o ADK (wrapper `State`, assinaturas opacas, retorno OpenAPI e formatação de saída), corrigidas com testes de regressão. O protocolo é criado somente quando o POST chega à API; um exit 40 posterior pode significar registro efetuado sem confirmação pela CLI — consulte o GET antes de repetir para evitar duplicação.
+**Evidência histórica:** `05-run-full.txt` é uma execução bem-sucedida anterior à redução de escopo; `evidence/fixture-audit/` documenta 31 execuções da versão que aceitava `PARTIAL`. Não interpretá-las como validação do fluxo atual. O protocolo é criado quando o POST chega à API; um exit 40 posterior pode significar registro efetuado sem confirmação pela CLI — consulte a API antes de repetir para evitar duplicação.
 
 ## Limitações e transparência
 

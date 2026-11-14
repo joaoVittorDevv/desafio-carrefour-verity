@@ -18,21 +18,24 @@ from transpiler.compiler import load_spec
 SPEC = Path("specs/clinical_agent_spec.json")
 
 
-def test_confirmation_checks_exact_partial_items_and_terms():
+def test_confirmation_requires_complete_exact_evidence():
     exam = dict(original_query="simulado", tuss_code="MOCK-0001", official_name="Fictício",
                 category="Simulada", fasting_hours=0, confidence_score=0.9)
-    state = {"resolved_exams": {"matched_exams": [exam], "unmatched_terms": ["não encontrado"]},
-             "booking_result": {"scheduled_exams": [exam.copy()], "unmatched_terms": ["não encontrado"],
-                                "total_exams_scheduled": 1, "status": "PARTIAL", "protocol_id": "LAB-TEST"}}
-    assert validate_confirmation(state)["status"] == "PARTIAL"
-    invalid = copy.deepcopy(state)
-    invalid["booking_result"]["unmatched_terms"] = []
-    with pytest.raises(AgentPipelineExecutionError):
-        validate_confirmation(invalid)
-    invalid = copy.deepcopy(state)
-    invalid["resolved_exams"]["matched_exams"] = []
-    with pytest.raises(AgentPipelineExecutionError):
-        validate_confirmation(invalid)
+    state = {"extracted_exams": {"exams": [{"raw_name": "simulado"}]},
+             "resolved_exams": {"matched_exams": [exam], "unmatched_terms": []},
+             "booking_result": {"scheduled_exams": [exam.copy()], "unmatched_terms": [],
+                                "total_exams_scheduled": 1, "status": "CONFIRMED", "protocol_id": "LAB-TEST"}}
+    state["_rag_verified"] = copy.deepcopy(state["resolved_exams"])
+    state["_booking_verified"] = copy.deepcopy(state["booking_result"])
+    assert validate_confirmation(state)["status"] == "CONFIRMED"
+    for change in (lambda v: v["booking_result"].update(status="PARTIAL"),
+                   lambda v: v["resolved_exams"]["unmatched_terms"].append("outro"),
+                   lambda v: v["extracted_exams"]["exams"][0].update(raw_name="alterado"),
+                   lambda v: v["booking_result"]["scheduled_exams"][0].update(tuss_code="MOCK-9999")):
+        invalid = copy.deepcopy(state)
+        change(invalid)
+        with pytest.raises(AgentPipelineExecutionError):
+            validate_confirmation(invalid)
 
 
 def test_check_image_rejects_traversal_and_bad_header(tmp_path):
@@ -104,19 +107,19 @@ def test_cli_success_feedback_is_in_portuguese(monkeypatch):
     monkeypatch.setattr(cli, "check_preflight", lambda *a: None)
 
     async def completed(*_args):
-        return {"protocol_id": "LAB-TEST", "status": "PARTIAL",
+        return {"protocol_id": "LAB-TEST", "status": "CONFIRMED",
                 "scheduled_at": "2026-11-13T14:02:41Z",
                 "scheduled_exams": [{"official_name": "Hemograma (simulado)",
                                      "tuss_code": "MOCK-0001"}],
-                "unmatched_terms": ["exame desconhecido"],
+                "unmatched_terms": [],
                 "preparation_summary": "Preparo simulado"}
 
     monkeypatch.setattr(cli, "execute_pipeline", completed)
     result = CliRunner().invoke(app, ["run", "--image", "/app/inputs/test.png"])
     assert result.exit_code == 0
     assert "Validando imagem e serviços" in result.stdout
-    assert "Protocolo: LAB-TEST (solicitação parcial)" in result.stdout
-    assert "Não registrado: exame desconhecido" in result.stdout
+    assert "Protocolo: LAB-TEST (solicitação confirmada)" in result.stdout
+    assert "Não registrado:" not in result.stdout
     assert "Registered:" not in result.stdout and "Protocol:" not in result.stdout
 
 

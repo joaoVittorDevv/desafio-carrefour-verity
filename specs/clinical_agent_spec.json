@@ -90,7 +90,7 @@
       }
     },
     "BookingConfirmationOutput": {
-      "description": "Retorno completo da solicitação registrada na FastAPI, inclusive registros parciais",
+      "description": "Retorno completo do registro confirmado pela FastAPI",
       "fields": {
         "protocol_id": {
           "type": "str",
@@ -98,7 +98,7 @@
         },
         "status": {
           "type": "str",
-          "description": "CONFIRMED (todos registrados) ou PARTIAL (somente parte registrada)"
+          "description": "CONFIRMED para novos registros"
         },
         "scheduled_at": {
           "type": "str",
@@ -159,7 +159,7 @@
       {
         "name": "ocr_intake_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados (incluindo itens manuscritos ao final do pedido). Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (true apenas para itens da nota manuscrita adicional).",
+        "instruction": "Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados do pedido digitado; não processe manuscritos ou adendos. Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (false para todos os itens do pedido digitado).",
         "mcp_bindings": [
           {
             "server_id": "mcp_ocr",
@@ -174,7 +174,7 @@
       {
         "name": "rag_lookup_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Leia os exames extraídos em {extracted_exams}. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name extraídos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir.",
+        "instruction": "Os exames extraídos chegam como JSON estruturado na mensagem do usuário desta etapa (schema ExtractedExamsOutput); não há interpolação no prompt do sistema. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name recebidos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir. Se algum termo ficar sem correspondência, o pedido inteiro será recusado sem registro.",
         "mcp_bindings": [
           {
             "server_id": "mcp_rag",
@@ -184,12 +184,15 @@
           }
         ],
         "output_key": "resolved_exams",
-        "output_schema_ref": "ResolvedExamsListOutput"
+        "output_schema_ref": "ResolvedExamsListOutput",
+        "input_key": "extracted_exams",
+        "input_schema_ref": "ExtractedExamsOutput",
+        "include_contents": "none"
       },
       {
         "name": "scheduling_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Você coordena o registro de solicitações fictícias. Leia matched_exams e unmatched_terms em {resolved_exams}. Se matched_exams estiver vazio, não invoque a API e encerre com erro. Caso contrário, invoque 'create_exam_appointment' apenas com os itens encontrados e todos os seus metadados, enviando unmatched_terms para auditoria; SEMPRE invoque a ferramenta antes de responder e nunca simule ou antecipe a resposta da API. Responda SOMENTE com JSON válido, sem cercas de código: reproduza a resposta completa da API EXATAMENTE como retornada, com todos os campos e valores preservados. Informe claramente o que foi registrado e o que não foi; PARTIAL significa registro parcial da solicitação, nunca reserva de horário. Não invente exames, códigos ou horários.",
+        "instruction": "Você coordena o registro fictício apenas de pedidos digitados completos. Receba o JSON estruturado ResolvedExamsListOutput. Se houver qualquer unmatched_terms ou se a lista matched_exams estiver vazia, não invoque a API. Caso contrário invoque create_exam_appointment com todos os matched_exams exatamente como recebidos e unmatched_terms vazio. SEMPRE invoque a ferramenta antes de responder; não simule resposta. Responda SOMENTE com JSON válido, sem cercas: reproduza a resposta completa da API EXATAMENTE como retornada, sem inventar exames, códigos nem horários. CONFIRMED é registro, não reserva de horário.",
         "openapi_bindings": [
           {
             "service_id": "scheduling_fastapi",
@@ -199,7 +202,10 @@
           }
         ],
         "output_key": "booking_result",
-        "output_schema_ref": "BookingConfirmationOutput"
+        "output_schema_ref": "BookingConfirmationOutput",
+        "input_key": "resolved_exams",
+        "input_schema_ref": "ResolvedExamsListOutput",
+        "include_contents": "none"
       }
     ]
   }

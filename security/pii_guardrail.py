@@ -25,7 +25,9 @@ _PATTERNS = (
     ("CNS", re.compile(r"(?<![\d.])(?:\d[ .-]?){14}\d\b")),
     ("RG", re.compile(r"\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]\b")),
     ("PHONE_NUMBER", re.compile(r"(?<!\w)(?:\+55[\s-]?)?(?:\(\d{2}\)|\d{2})?[\s-]?(?:9\d{4}|\d{4})-?\d{4}\b")),
-    ("PERSON", re.compile(r"\b(?:Paciente|Nome|Solicitante|Dr\.?|Dra\.?|Médico\(?a\)?)\s*:\s*([^\n|;]+?)(?=\s+(?:CPF|RG|Tel|CRM|E-mail)\s*:|\s+-\s+CRM|[\n|;]|$)", re.I)),
+    # Capture stops at backslash too: JSON-escaped payloads use literal \n where raw
+    # text has line breaks, and the placeholder check must still see clean boundaries.
+    ("PERSON", re.compile(r'\b(?:Paciente|Nome|Solicitante|Dr\.?|Dra\.?|Médico\(?a\)?)\s*:\s*([^\n|;\\"]+?)(?=\s+(?:CPF|RG|Tel|CRM|E-mail)\s*:|\s+-\s+CRM|[\n|;"]|\\n|$)', re.I)),
     ("PERSON", re.compile(r"\b(?:Dr\.?|Dra\.?)\s+([A-ZÀ-Ý][\wÀ-ÿ]+(?:\s+[A-ZÀ-Ý][\wÀ-ÿ]+)+)", re.I)),
 )
 _MASK = {"EMAIL_ADDRESS": "EMAIL", "PHONE_NUMBER": "PHONE"}

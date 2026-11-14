@@ -49,6 +49,9 @@ def _inspect(value):
         raise GuardrailViolation() from None
 
 
+inspect_for_pii = _inspect
+
+
 def _as_dict(value):
     if isinstance(value, str):
         try:
@@ -76,7 +79,21 @@ def _tool_result(response):
 
 
 def before_model_callback(callback_context, llm_request):
-    """Never send residual PII or a prior blocked OCR tool error to the LLM."""
+    """Deliver the typed upstream payload as the user turn, then block residual PII."""
+    agent_name = getattr(callback_context, "agent_name", "")
+    agent_input = callback_context.state.get(f"temp:{agent_name}_input")
+    if agent_input is not None:
+        has_tool_traffic = any(
+            getattr(part, "function_call", None) or getattr(part, "function_response", None)
+            for content in llm_request.contents or []
+            for part in getattr(content, "parts", None) or []
+        )
+        if not has_tool_traffic:
+            # Typed input contract: the payload IS the user turn, no prompt interpolation.
+            from google.genai import types
+
+            llm_request.contents = [types.Content(
+                role="user", parts=[types.Part(text=json.dumps(agent_input, ensure_ascii=False))])]
     _inspect(callback_context.state)
     _inspect(llm_request.contents)
     _inspect(llm_request.config.system_instruction if llm_request.config else None)
@@ -97,6 +114,25 @@ def _same_payload(candidate, verified):
     return candidate == verified
 
 
+class IncompleteOrderError(ValueError):
+    """A typed order is incomplete; no registration tool may be called."""
+
+
+def require_complete_order(extracted, resolved):
+    """Require ordered, repeated OCR terms to match all catalog evidence."""
+    try:
+        raw = [item["raw_name"] for item in _as_dict(extracted)["exams"]]
+        resolved = _as_dict(resolved)
+        found = [item["original_query"] for item in resolved["matched_exams"]]
+        unmatched = resolved["unmatched_terms"]
+        if (not raw or not found or unmatched or
+                any(not isinstance(term, str) for term in raw + found) or
+                found != raw):
+            raise IncompleteOrderError("Order incomplete or catalog evidence differs")
+    except (KeyError, TypeError):
+        raise IncompleteOrderError("Order and catalog evidence differ") from None
+
+
 def before_tool_callback(tool, args, tool_context):
     """Require exact previously verified inputs before RAG lookup or API POST."""
     state = tool_context.state
@@ -113,10 +149,11 @@ def before_tool_callback(tool, args, tool_context):
             raise ValueError("RAG queries do not match verified OCR exams")
     elif tool.name == "create_exam_appointment":
         resolved = _as_dict(state.get("resolved_exams"))
-        if ("_rag_verified" not in state or not resolved.get("matched_exams") or
+        if ("_rag_verified" not in state or not _same_payload(resolved, state["_rag_verified"]) or
                 not _same_payload(args.get("exams"), resolved["matched_exams"]) or
                 args.get("unmatched_terms", []) != resolved["unmatched_terms"]):
             raise ValueError("Registration differs from verified RAG results")
+        require_complete_order(state.get("extracted_exams"), resolved)
     return None
 
 

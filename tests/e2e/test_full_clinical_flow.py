@@ -10,9 +10,10 @@ from rich.console import Console
 
 from runtime.cli import AgentPipelineExecutionError, execute_pipeline
 from security import GuardrailViolation
+from security.adk_callbacks import require_complete_order
 
 
-def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
+def test_complete_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     import runtime.cli as cli
 
     calls = {"ocr": 0, "rag": 0, "api": 0}
@@ -26,24 +27,24 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
         "fasting_hours": 0,
         "confidence_score": 0.92,
     }
-    mode = {"value": "partial"}
+    mode = {"value": "complete"}
 
     def ocr(_image):
         calls["ocr"] += 1
         if mode["value"] == "unsafe":
             raise GuardrailViolation()
-        return {"exams": ["Hemograma", "ilegível"], "sanitized_text": "[REDACTED_PERSON]"}
+        return {"exams": [{"raw_name": "Hemograma"}], "sanitized_text": "[REDACTED_PERSON]"}
 
     def rag(_exams):
         calls["rag"] += 1
         if mode["value"] == "unmatched":
             return {"matched_exams": [], "unmatched_terms": ["ilegível"]}
-        return {"matched_exams": [accepted], "unmatched_terms": ["ilegível"]}
+        return {"matched_exams": [accepted], "unmatched_terms": ["ilegível"] if mode["value"] == "partial" else []}
 
     def api(result):
         calls["api"] += 1
         return {
-            "protocol_id": "LAB-MOCK", "status": "PARTIAL",
+            "protocol_id": "LAB-MOCK", "status": "CONFIRMED",
             "scheduled_at": "2026-11-12T19:45:00Z", "preferred_unit": "Unidade Central",
             "max_fasting_hours_required": 0,
             "preparation_summary": "Preparo simulado",
@@ -70,14 +71,21 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
         async def run_async(self, **_kwargs):
             extracted = ocr(input_path)
             yield SimpleNamespace(author="ocr_intake_agent")
+            state["extracted_exams"] = extracted
             resolved = rag(extracted["exams"])
-            if not resolved["matched_exams"]:
+            if not resolved["matched_exams"] or resolved["unmatched_terms"]:
                 raise AgentPipelineExecutionError("No exams resolved")
             state["resolved_exams"] = resolved
+            state["_rag_verified"] = resolved
+            if mode["value"] == "tampered":
+                state["resolved_exams"] = {**resolved, "matched_exams": [
+                    {**accepted, "original_query": "Outro"}]}
+            require_complete_order(state["extracted_exams"], state["resolved_exams"])
             yield SimpleNamespace(author="rag_lookup_agent")
             state["booking_result"] = api(resolved)
+            state["_booking_verified"] = state["booking_result"].copy()
             if mode["value"] == "invalid_confirmation":
-                state["booking_result"]["status"] = "CONFIRMED"
+                state["booking_result"]["status"] = "PARTIAL"
             yield SimpleNamespace(author="scheduling_agent")
 
     monkeypatch.setattr(cli.importlib, "import_module", lambda _name: SimpleNamespace(build_pipeline=lambda: object()))
@@ -90,9 +98,9 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     )))
 
     result = asyncio.run(execute_pipeline("mocked.agent", input_path))
-    assert result["status"] == "PARTIAL"
+    assert result["status"] == "CONFIRMED"
     assert result["scheduled_exams"] == [accepted]
-    assert result["unmatched_terms"] == ["ilegível"]
+    assert result["unmatched_terms"] == []
     assert calls == {"ocr": 1, "rag": 1, "api": 1}
     text = output.getvalue()
     for step in ("Extraindo exames e protegendo dados pessoais", "Conferindo exames no catálogo fictício",
@@ -102,6 +110,16 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     assert text.index("Iniciando: Conferindo") < text.index("✓ Conferindo")
     assert "Conferindo o resultado do registro" in text
     assert "Hemograma" not in text and "[REDACTED_PERSON]" not in text
+
+    mode["value"] = "partial"
+    with pytest.raises(AgentPipelineExecutionError):
+        asyncio.run(execute_pipeline("mocked.agent", input_path))
+    assert calls["api"] == 1
+
+    mode["value"] = "tampered"
+    with pytest.raises(ValueError):
+        asyncio.run(execute_pipeline("mocked.agent", input_path))
+    assert calls["api"] == 1
 
     mode["value"] = "unmatched"
     output.seek(0)
@@ -121,4 +139,4 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     mode["value"] = "unsafe"
     with pytest.raises(GuardrailViolation):
         asyncio.run(execute_pipeline("mocked.agent", input_path))
-    assert calls["rag"] == 3 and calls["api"] == 2
+    assert calls["rag"] == 5 and calls["api"] == 2

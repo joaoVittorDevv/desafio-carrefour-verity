@@ -58,7 +58,7 @@ class ResolvedExamItem(BaseModel):
 class AppointmentCreateRequest(BaseModel):
     preferred_unit: str = Field(default="Unidade Central - Matriz", min_length=1, description="Requested unit; no time slot is reserved", examples=["Unidade Central - Matriz"])
     exams: list[ResolvedExamItem] = Field(min_length=1, description="Only reconciled synthetic exams", examples=[[{"original_query": "Hemograma Completo", "tuss_code": "MOCK-0001", "official_name": "Hemograma Completo (simulado)", "category": "Hematologia", "fasting_hours": 0, "confidence_score": 0.98}]])
-    unmatched_terms: list[str] = Field(default_factory=list, description="Unresolved terms, not registered", examples=[["Exame ilegível"]])
+    unmatched_terms: list[str] = Field(default_factory=list, max_length=0, description="Only complete orders may be registered", examples=[[]])
     clinical_observations: str | None = Field(default=None, description="Anonymized notes only", examples=["Pedido fictício processado com PII anonimizada"])
 
     @field_validator("preferred_unit", "clinical_observations")

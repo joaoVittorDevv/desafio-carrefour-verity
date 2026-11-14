@@ -13,7 +13,7 @@
 Este documento estabelece a especificação técnica, as decisões arquiteturais (ADRs), os contratos de integração, a modelagem de dados e os critérios de validação (KPIs) para a construção de:
 
 1. **Um Transpilador Declarativo ($\text{JSON} \rightarrow \text{Python Google ADK}$):** Motor de compilação responsável por validar um manifesto declarativo em JSON (via Pydantic v2), verificar referências cruzadas de ferramentas e schemas, e gerar código Python executável, formatado e validado sintaticamente via Árvore Sintática Abstrata (`ast`), instanciando agentes exclusivamente com o **Google Agent Development Kit (`google-adk`)**.
-2. **Um Ecossistema Distribuído de Execução (Caso de Uso Clínico):** Assistente de linha de comando (CLI) conteinerizado via Docker Compose para processamento de pedidos médicos em imagem (incluindo notas manuscritas), contemplando:
+2. **Um Ecossistema Distribuído de Execução (Caso de Uso Clínico):** Assistente de linha de comando (CLI) conteinerizado via Docker Compose para processamento de pedidos médicos fictícios digitados, nítidos e bem enquadrados, contemplando:
    * **Extração Óptica e Guardrail de Privacidade (`mcp-ocr`):** Servidor MCP comunicando-se exclusivamente via *Server-Sent Events* (SSE), executando pré-processamento de imagem, OCR local e anonimização determinística/NLP de dados sensíveis (PII) **antes** do envio ao LLM.
    * **Recuperação Aumentada Híbrida (`mcp-rag`):** Servidor MCP (SSE) conectado ao PostgreSQL (`pgvector` + `pg_trgm`) com catálogo sintético superior a $100$ exames laboratoriais com códigos fictícios (convenção `MOCK-0001`, `MOCK-0002`, etc.; não são códigos TUSS/CBHPM oficiais) e geração de embeddings locais em CPU via `FastEmbed`.
    * **Serviço de Agendamento (`scheduling-api`):** Microsserviço RESTful em FastAPI com persistência relacional no PostgreSQL e documentação OpenAPI 3.1 (`/docs`) consumida nativamente pelo agente via `OpenAPIToolset`.
@@ -22,12 +22,13 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 
 ## 2. Registros de Decisões Arquiteturais (ADRs)
 
-### ADR-001: Orquestração Determinística com `SequentialAgent` e Resolução do Conflito `tools` vs. `output_schema`
-* **Contexto:** O caso de uso exige uma cadeia estritamente ordenada de 5 etapas (Entrada $\rightarrow$ OCR $\rightarrow$ RAG $\rightarrow$ Agendamento $\rightarrow$ Saída CLI). Além disso, na API do Gemini/ADK, configurar simultaneamente `tools` (*Function Calling*) e `output_schema` (*Controlled Generation*) no mesmo `LlmAgent` pode ocasionar conflitos na geração de chamadas de ferramentas.
+### ADR-001: Orquestração Determinística com `SequentialAgent`; instruções estáticas, contratos tipados de entrada/saída e o conflito `tools` vs. `output_schema`
+* **Contexto:** O caso de uso exige uma cadeia estritamente ordenada de 5 etapas (Entrada $\rightarrow$ OCR $\rightarrow$ RAG $\rightarrow$ Agendamento $\rightarrow$ Saída CLI). Além disso, na API do Gemini/ADK, configurar simultaneamente `tools` (*Function Calling*) e `output_schema` (*Controlled Generation*) no mesmo `LlmAgent` pode ocasionar conflitos na geração de chamadas de ferramentas. Por fim, interpolar dados da etapa anterior dentro do `instruction` (system prompt) mistura dado dinâmico com regra de sistema e amplia a superfície de *prompt injection*.
 * **Decisão:**
   1. Adotar o padrão `SequentialAgent` do Google ADK coordenando subagentes especializados (`LlmAgent`), compartilhando dados através do dicionário de sessão (`session.state`) via `output_key`.
-  2. Garantir contratos tipados Pydantic em duas camadas complementares geradas pelo transpilador: (a) validação das respostas reais das tools via `after_tool_callback` e das entradas da próxima etapa via `before_tool_callback`; (b) `after_agent_callback` que valida `session.state[output_key]` contra o `BaseModel` do JSON **e** confere o conteúdo com a resposta efetiva da tool, não apenas a forma do JSON. A CLI fixa em `session.state` o caminho da imagem requisitada, e o callback do OCR rejeita outro caminho.
-* **Motivação:** Previsibilidade de execução, rastreabilidade por etapa, facilidade de testes isolados e garantia de tipagem forte sem quebrar o loop de *tool calling* dos servidores MCP e OpenAPI.
+  2. **Instruções estritamente estáticas e dados tipados fora do system prompt.** A DSL permite que cada agente declare `input_key` + `input_schema_ref` + `include_contents`. O transpilador gera um `before_agent_callback` (`_validate_input`) que valida a entrada com Pydantic, aplica a inspeção anti-PII e checa invariantes determinísticos (lista de exames não vazia; `matched_exams` não vazio e idêntico ao `_rag_verified`) **antes** de acionar o LLM. A entrada validada é entregue ao modelo como mensagem de turno `role="user"` isolada (`include_contents="none"` remove o histórico bruto dos agentes anteriores; o `before_model_callback` injeta o JSON sanitizado na primeira chamada do turno), nunca no `instruction`. O validador da DSL rejeita `instruction` que contenha `{<input_key>}` interpolado.
+  3. **Saída estruturada em duas camadas.** No `google-adk==2.14.1`, `output_schema=` convive com `tools` (o ADK injeta a tool `set_model_response`, que estrutura apenas a resposta final, mantendo as tools disponíveis no loop de raciocínio); a saída final continua auditada pelo `after_agent_callback` contra as evidências reais das tools (`_ocr_verified`/`_rag_verified`/`_booking_verified`), e o callback de tool ignora `set_model_response` na gravação de evidências.
+* **Motivação:** Previsibilidade de execução, rastreabilidade por etapa, facilidade de testes isolados, garantia de tipagem forte sem quebrar o loop de *tool calling*, e separação entre instrução (estática) e dado (dinâmico, tipado e sanitizado) para reduzir injeção de prompt e acoplamento de regra de negócio a texto livre.
 
 ### ADR-002: Múltiplos Servidores MCP via SSE com Princípio do Menor Privilégio (`tool_filter`)
 * **Contexto:** Os requisitos determinam que as ferramentas de OCR e RAG sejam servidores MCP comunicando-se exclusivamente via SSE e avaliam a separação clara de responsabilidades.
@@ -35,7 +36,7 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 * **Motivação:** Isolamento de dependências de sistema operacional (bibliotecas gráficas do OpenCV/OCR separadas das bibliotecas de busca vetorial), escalabilidade independente e segurança em nível de *runtime* (o agente de OCR jamais pode invocar ferramentas de banco de dados e vice-versa).
 
 ### ADR-003: PostgreSQL 16 Unificado (`pgvector` + `pg_trgm`) com Isolamento por Schemas e Busca Híbrida
-* **Contexto:** O sistema precisa armazenar um catálogo sintético com mais de $100$ exames médicos para consulta RAG e persistir as solicitações registradas pela API FastAPI. Textos extraídos por OCR de pedidos médicos (especialmente com anotações manuscritas) frequentemente apresentam ruídos ortográficos ou abreviações clínicas (ex.: `Hemo completo`, `Glicemia jejum`, `TSH ultra`).
+* **Contexto:** O sistema precisa armazenar um catálogo sintético com mais de $100$ exames médicos para consulta RAG e persistir as solicitações registradas pela API FastAPI. Textos extraídos por OCR de pedidos digitados podem apresentar ruídos ortográficos ou abreviações clínicas (ex.: `Hemo completo`, `Glicemia jejum`, `TSH ultra`).
 * **Decisão:** Utilizar uma única instância PostgreSQL (`pgvector/pgvector:pg16`) dividida em dois schemas lógicos (`rag` e `scheduling`). No schema `rag`, habilitar as extensões `vector` (índice HNSW) e `pg_trgm` (índice GIN de trigramas) para executar **Busca Híbrida** combinando similaridade semântica de cosseno e similaridade léxica.
 * **Motivação:** Reduz o overhead operacional do Docker Compose a um único SGBD robusto, enquanto a busca híbrida contorna erros de caracteres produzidos pelo OCR onde a busca puramente semântica ou puramente exata falharia.
 
@@ -64,9 +65,9 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 * **Decisão:** Gerar no transpilador a integração usando `OpenAPIToolset` do `google-adk`; o runtime obtém o schema em `http://scheduling-api:8000/openapi.json` e o passa como `spec_dict`, com `allow_private_network_access=True` apenas para o serviço interno e `tool_filter` restringindo a operação `create_exam_appointment`. A lista `allowed_operations` no manifesto é traduzida para os nomes de ferramentas gerados pelo ADK.
 * **Motivação:** Elimina código *boilerplate* de clientes HTTP manuais e garante acoplamento contratual único (*Single Source of Truth*) entre o Swagger (`/docs`) e o agente.
 
-### ADR-008: Resultado parcial, contrato completo e significado do protocolo
-* **Decisão:** Se pelo menos um exame ultrapassar o limiar de confiança, registrar apenas os encontrados; quando houver termos não encontrados, retornar `PARTIAL`, os itens registrados e `unmatched_terms` explicitamente. Sem nenhum exame encontrado, não chamar a API e retornar erro de execução (`40`). `CONFIRMED` significa que **a solicitação foi registrada**, não que houve reserva de data/horário; `scheduled_at` é a data/hora do registro. A resposta da API, o schema do agente e a consulta por protocolo compartilham os mesmos campos, inclusive os metadados completos de cada exame, a lista de termos não atendidos e o resumo de preparo. O callback bloqueia o POST se os argumentos divergirem do RAG, exige resposta efetiva da API e o runtime confere novamente os itens/termos antes de exibir o resultado. Não inventar resultados nem apresentar os não atendidos como registrados.
-* **Motivação:** Transparência para o usuário e contrato auditável ponta a ponta, inclusive em sucesso parcial.
+### ADR-008: Registro integral obrigatório e compatibilidade de leitura histórica
+* **Decisão atual:** aceitar apenas pedidos fictícios digitados com pelo menos um exame extraído e **todos** os termos extraídos reconciliados com o catálogo. O RAG continua retornando `matched_exams` e `unmatched_terms` como diagnóstico; qualquer termo sem correspondência, lista vazia ou divergência de ordem/multiplicidade entre extração e RAG bloqueia antes do POST. A API rejeita POST parcial diretamente, sem persistência. Novos registros são `CONFIRMED` (**solicitação registrada**, não reserva de horário); `scheduled_at` é o instante do registro. GET e o schema de resposta ainda conseguem ler registros `PARTIAL` históricos; o banco não é migrado nem apagado. Após o POST, uma falha de confirmação não desfaz o registro: consultar a API antes de repetir.
+* **Motivação:** Evitar registros silenciosamente incompletos; preservar rastreabilidade e compatibilidade de leitura do histórico sem alterar a stack.
 
 ### ADR-009: Falha segura de privacidade e catálogo explicitamente fictício
 * **Decisão:** Se o OCR/anonimizador não conseguir liberar o texto com segurança, faltar detector local de nomes no OCR/API ou qualquer barreira detectar PII residual, bloquear o fluxo **antes do LLM ou da persistência**, informar que não houve registro e sugerir nova tentativa com uma imagem mais legível; nunca exibir nem registrar o valor sensível no erro. Todos os exames, códigos e instruções do catálogo são simulados; usar identificadores distinguíveis (`MOCK-0001` etc.), sem atribuir-lhes validade TUSS/CBHPM real nem orientação clínica real.
@@ -174,6 +175,7 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
 4. **Integridade Referencial de Schemas (`output_schema_ref`):** Todo `output_schema_ref` declarado em um agente (e tipos aninhados como `list[ResolvedExamItem]`) deve existir no dicionário raiz `schemas`.
 5. **Unicidade de Nomes e `output_key`:** Nomes de agentes (`agent.name`) e chaves de estado (`agent.output_key`) devem ser únicos e identificadores Python válidos (`str.isidentifier()`), evitando sobrescrita acidental no `session.state`.
 6. **Validação da Árvore Sintática (`ast.parse`):** Após a renderização do template Jinja2, o código Python gerado deve passar por `ast.parse(generated_code)` e verificação de imports obrigatórios (`from google.adk.agents import LlmAgent, SequentialAgent`, `from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, SseConnectionParams`).
+7. **Contratos de entrada tipados (`input_key`/`input_schema_ref`/`include_contents`):** Quando um agente declara entrada, `input_key` e `input_schema_ref` devem vir juntos; `input_key` precisa ser identificador Python válido e igual ao `output_key` de um agente **anterior** na sequência; `input_schema_ref` deve existir em `schemas`; e o `instruction` não pode conter a interpolação `{<input_key>}` (instrução estática, dado entregue em turno separado). `include_contents` aceita apenas `default` ou `none`.
 
 ### 4.2. Contrato Completo do JSON de Especificação (`specs/clinical_agent_spec.json`)
 
@@ -186,55 +188,128 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
   },
   "guardrails": {
     "enable_pii_redaction": true,
-    "entities": ["PERSON", "CPF", "RG", "PHONE_NUMBER", "EMAIL_ADDRESS", "CRM"],
+    "entities": [
+      "PERSON",
+      "CPF",
+      "RG",
+      "PHONE_NUMBER",
+      "EMAIL_ADDRESS",
+      "CRM"
+    ],
     "mask_token": "[REDACTED]"
   },
   "schemas": {
     "ExtractedExamRaw": {
       "description": "Item bruto extraído do pedido médico",
       "fields": {
-        "raw_name": { "type": "str", "description": "Nome do exame como consta no pedido médico" },
-        "is_handwritten_hint": { "type": "bool", "description": "Indica se parece vir de nota/observação adicional" }
+        "raw_name": {
+          "type": "str",
+          "description": "Nome do exame como consta no pedido médico"
+        },
+        "is_handwritten_hint": {
+          "type": "bool",
+          "description": "Indica se parece vir de nota/observação adicional"
+        }
       }
     },
     "ExtractedExamsOutput": {
       "description": "Resultado estruturado da etapa de OCR e sanitização de PII",
       "fields": {
-        "sanitized_text": { "type": "str", "description": "Texto completo após anonimização de dados sensíveis" },
-        "pii_entities_masked": { "type": "int", "description": "Quantidade de entidades sensíveis mascaradas" },
-        "exams": { "type": "list[ExtractedExamRaw]", "description": "Lista de exames extraídos da imagem" }
+        "sanitized_text": {
+          "type": "str",
+          "description": "Texto completo após anonimização de dados sensíveis"
+        },
+        "pii_entities_masked": {
+          "type": "int",
+          "description": "Quantidade de entidades sensíveis mascaradas"
+        },
+        "exams": {
+          "type": "list[ExtractedExamRaw]",
+          "description": "Lista de exames extraídos da imagem"
+        }
       }
     },
     "ResolvedExamItem": {
       "description": "Exame reconciliado com o catálogo sintético no banco vetorial",
       "fields": {
-        "original_query": { "type": "str", "description": "Termo original extraído no OCR" },
-        "tuss_code": { "type": "str", "description": "Identificador fictício do catálogo (ex: MOCK-0001); campo legado, não é código TUSS oficial" },
-        "official_name": { "type": "str", "description": "Nome padronizado do exame no catálogo" },
-        "category": { "type": "str", "description": "Categoria laboratorial (ex: Hematologia, Bioquímica)" },
-        "fasting_hours": { "type": "int", "description": "Horas de jejum necessárias" },
-        "confidence_score": { "type": "float", "description": "Score híbrido de similaridade entre 0.0 e 1.0" }
+        "original_query": {
+          "type": "str",
+          "description": "Termo original extraído no OCR"
+        },
+        "tuss_code": {
+          "type": "str",
+          "description": "Identificador fictício do catálogo (ex: MOCK-0001); campo legado, não é código TUSS oficial"
+        },
+        "official_name": {
+          "type": "str",
+          "description": "Nome padronizado do exame no catálogo"
+        },
+        "category": {
+          "type": "str",
+          "description": "Categoria laboratorial (ex: Hematologia, Bioquímica)"
+        },
+        "fasting_hours": {
+          "type": "int",
+          "description": "Horas de jejum necessárias"
+        },
+        "confidence_score": {
+          "type": "float",
+          "description": "Score híbrido de similaridade entre 0.0 e 1.0"
+        }
       }
     },
     "ResolvedExamsListOutput": {
       "description": "Lista consolidada de exames reconciliados pelo RAG",
       "fields": {
-        "matched_exams": { "type": "list[ResolvedExamItem]", "description": "Exames encontrados na base com seus códigos" },
-        "unmatched_terms": { "type": "list[str]", "description": "Termos que não atingiram o score mínimo" }
+        "matched_exams": {
+          "type": "list[ResolvedExamItem]",
+          "description": "Exames encontrados na base com seus códigos"
+        },
+        "unmatched_terms": {
+          "type": "list[str]",
+          "description": "Termos que não atingiram o score mínimo"
+        }
       }
     },
     "BookingConfirmationOutput": {
-      "description": "Retorno completo da solicitação registrada na FastAPI, inclusive registros parciais",
+      "description": "Retorno completo do registro confirmado pela FastAPI",
       "fields": {
-        "protocol_id": { "type": "str", "description": "Número de protocolo único gerado pela API" },
-        "status": { "type": "str", "description": "CONFIRMED (todos registrados) ou PARTIAL (somente parte registrada)" },
-        "scheduled_at": { "type": "str", "description": "Data/hora ISO-8601 do registro da solicitação; não é horário reservado para coleta" },
-        "preferred_unit": { "type": "str", "description": "Unidade indicada na solicitação" },
-        "max_fasting_hours_required": { "type": "int", "description": "Maior duração fictícia de jejum entre os exames registrados" },
-        "preparation_summary": { "type": "str", "description": "Resumo fictício de preparo/jejum; não substitui orientação clínica" },
-        "total_exams_scheduled": { "type": "int", "description": "Quantidade de exames registrados" },
-        "scheduled_exams": { "type": "list[ResolvedExamItem]", "description": "Exames efetivamente registrados, com todos os metadados da reconciliação" },
-        "unmatched_terms": { "type": "list[str]", "description": "Exames solicitados não encontrados e não registrados" }
+        "protocol_id": {
+          "type": "str",
+          "description": "Número de protocolo único gerado pela API"
+        },
+        "status": {
+          "type": "str",
+          "description": "CONFIRMED para novos registros"
+        },
+        "scheduled_at": {
+          "type": "str",
+          "description": "Data/hora ISO-8601 do registro da solicitação; não é horário reservado para coleta"
+        },
+        "preferred_unit": {
+          "type": "str",
+          "description": "Unidade indicada na solicitação"
+        },
+        "max_fasting_hours_required": {
+          "type": "int",
+          "description": "Maior duração fictícia de jejum entre os exames registrados"
+        },
+        "preparation_summary": {
+          "type": "str",
+          "description": "Resumo fictício de preparo/jejum; não substitui orientação clínica"
+        },
+        "total_exams_scheduled": {
+          "type": "int",
+          "description": "Quantidade de exames registrados"
+        },
+        "scheduled_exams": {
+          "type": "list[ResolvedExamItem]",
+          "description": "Exames efetivamente registrados, com todos os metadados da reconciliação"
+        },
+        "unmatched_terms": {
+          "type": "list[str]",
+          "description": "Exames solicitados não encontrados e não registrados"
+        }
       }
     }
   },
@@ -266,11 +341,13 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
       {
         "name": "ocr_intake_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados (incluindo itens manuscritos ao final do pedido) e retorne a estrutura JSON correspondente ao schema ExtractedExamsOutput.",
+        "instruction": "Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados do pedido digitado; não processe manuscritos ou adendos. Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (false para todos os itens do pedido digitado).",
         "mcp_bindings": [
           {
             "server_id": "mcp_ocr",
-            "allowed_tools": ["extract_and_anonymize_medical_order"]
+            "allowed_tools": [
+              "extract_and_anonymize_medical_order"
+            ]
           }
         ],
         "output_key": "extracted_exams",
@@ -279,28 +356,38 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
       {
         "name": "rag_lookup_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Leia os exames extraídos em {extracted_exams}. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Retorne matched_exams e unmatched_terms seguindo o schema ResolvedExamsListOutput.",
+        "instruction": "Os exames extraídos chegam como JSON estruturado na mensagem do usuário desta etapa (schema ExtractedExamsOutput); não há interpolação no prompt do sistema. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name recebidos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir. Se algum termo ficar sem correspondência, o pedido inteiro será recusado sem registro.",
         "mcp_bindings": [
           {
             "server_id": "mcp_rag",
-            "allowed_tools": ["search_exam_catalog_hybrid"]
+            "allowed_tools": [
+              "search_exam_catalog_hybrid"
+            ]
           }
         ],
         "output_key": "resolved_exams",
-        "output_schema_ref": "ResolvedExamsListOutput"
+        "output_schema_ref": "ResolvedExamsListOutput",
+        "input_key": "extracted_exams",
+        "input_schema_ref": "ExtractedExamsOutput",
+        "include_contents": "none"
       },
       {
         "name": "scheduling_agent",
         "model": "gemini-2.5-flash",
-        "instruction": "Você coordena o registro de solicitações fictícias. Leia matched_exams e unmatched_terms em {resolved_exams}. Se matched_exams estiver vazio, não invoque a API e encerre com erro. Caso contrário, invoque 'create_exam_appointment' apenas com os itens encontrados e todos os seus metadados, enviando unmatched_terms para auditoria. Reproduza a resposta completa da API no schema BookingConfirmationOutput. Informe claramente o que foi registrado e o que não foi; PARTIAL significa registro parcial da solicitação, nunca reserva de horário. Não invente exames, códigos ou horários.",
+        "instruction": "Você coordena o registro fictício apenas de pedidos digitados completos. Receba o JSON estruturado ResolvedExamsListOutput. Se houver qualquer unmatched_terms ou se a lista matched_exams estiver vazia, não invoque a API. Caso contrário invoque create_exam_appointment com todos os matched_exams exatamente como recebidos e unmatched_terms vazio. SEMPRE invoque a ferramenta antes de responder; não simule resposta. Responda SOMENTE com JSON válido, sem cercas: reproduza a resposta completa da API EXATAMENTE como retornada, sem inventar exames, códigos nem horários. CONFIRMED é registro, não reserva de horário.",
         "openapi_bindings": [
           {
             "service_id": "scheduling_fastapi",
-            "allowed_operations": ["create_exam_appointment"]
+            "allowed_operations": [
+              "create_exam_appointment"
+            ]
           }
         ],
         "output_key": "booking_result",
-        "output_schema_ref": "BookingConfirmationOutput"
+        "output_schema_ref": "BookingConfirmationOutput",
+        "input_key": "resolved_exams",
+        "input_schema_ref": "ResolvedExamsListOutput",
+        "include_contents": "none"
       }
     ]
   }
@@ -316,7 +403,7 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
 * **Protocolo:** MCP sobre SSE (`GET /sse` e `POST /messages`).
 * **Pipeline Interno da Tool `extract_and_anonymize_medical_order(file_path: str)`:**
   1. **Validação de Path Traversal:** Garante que `os.path.realpath(file_path)` reside estritamente dentro de `/app/inputs` e que a extensão pertence a `{.png, .jpg, .jpeg, .webp}`.
-  2. **Pré-processamento OpenCV:** Converte para escala de cinza, aplica remoção leve de ruído (`cv2.fastNlMeansDenoising`) e ajuste de contraste (CLAHE) para realçar tanto fontes impressas quanto caligrafia manuscrita.
+  2. **Pré-processamento OpenCV:** Converte para escala de cinza, aplica remoção leve de ruído (`cv2.fastNlMeansDenoising`) e ajuste de contraste (CLAHE) para pedidos digitados e legíveis.
   3. **Extração com RapidOCR:** Extrai caixas delimitadoras, linhas de texto e confidência média $\bar{c} \in [0, 1]$.
   4. **Sanitização Determinística + NLP (Camada de Segurança PII):** A tool libera apenas texto sanitizado; se não for possível garantir a anonimização (falha de OCR/sanitização ou suspeita de PII residual), falha fechada sem retornar texto bruto. O runtime informa o bloqueio e sugere reenviar imagem mais legível, sem encaminhar conteúdo ao LLM ou persistir dados.
      * Aplica reconhecedores customizados Regex/Presidio para padrões brasileiros:
@@ -440,16 +527,16 @@ Para que o `OpenAPIToolset` do Google ADK interprete perfeitamente a especifica�
              "confidence_score": 0.98
            }
          ],
-         "unmatched_terms": ["Exame ilegível"],
+         "unmatched_terms": [],
          "clinical_observations": "Pedido fictício processado com PII anonimizada"
        }
        ```
-     * **Validação de Segurança no Endpoint:** Um validador Pydantic na FastAPI rejeita (`HTTP 422`) `exams` vazia e PII não mascarada em qualquer campo textual, inclusive `clinical_observations`, `exams` e `unmatched_terms`. Sem o modelo local de reconhecimento de nomes no container da API, `/health` retorna 503 e o POST falha fechado. A persistência é transacional: protocolo, itens e termos não atendidos devem ser gravados juntos. `status` é calculado pela API: `PARTIAL` se `unmatched_terms` não estiver vazia; caso contrário `CONFIRMED`. O runtime bloqueia a chamada se não houver itens encontrados.
+     * **Validação de Segurança no Endpoint:** Um validador Pydantic na FastAPI rejeita (`HTTP 422`) `exams` vazia e PII não mascarada em qualquer campo textual, inclusive `clinical_observations`, `exams` e `unmatched_terms`. Sem o modelo local de reconhecimento de nomes no container da API, `/health` retorna 503 e o POST falha fechado. A persistência é transacional: protocolo e itens são gravados juntos. POST com `unmatched_terms` não vazio retorna 422 antes da transação; novos registros são sempre `CONFIRMED`. GET mantém leitura de `PARTIAL` histórico. O runtime bloqueia a chamada se não houver itens encontrados ou houver qualquer termo não encontrado.
      * **Response Body (`HTTP 201 Created` - `AppointmentCreateResponse`):**
        ```json
        {
          "protocol_id": "LAB-2026-11-12-ABCDEFGHIJ",
-         "status": "PARTIAL",
+         "status": "CONFIRMED",
          "scheduled_at": "2026-11-12T19:45:00Z",
          "preferred_unit": "Unidade Central - Matriz",
          "max_fasting_hours_required": 0,
@@ -465,7 +552,7 @@ Para que o `OpenAPIToolset` do Google ADK interprete perfeitamente a especifica�
              "confidence_score": 0.98
            }
          ],
-         "unmatched_terms": ["Exame ilegível"]
+         "unmatched_terms": []
        }
        ```
   3. `GET /api/v1/appointments/{protocol_id}` (`operation_id="get_exam_appointment"`): Retorna o mesmo contrato completo do POST, permitindo consultar o que foi e o que não foi registrado. `scheduled_at` é a hora do registro da solicitação, não uma reserva de horário de coleta.
@@ -478,7 +565,7 @@ A ferramenta de linha de comando (`runtime/cli.py`), construída com **Typer** e
 
 | Exit Code | Classe de Exceção | Fase | Causa Raiz | Ação / Feedback Visual na CLI (Rich) |
 | :---: | :--- | :--- | :--- | :--- |
-| `0` | N/A (Sucesso) | Todas | Transpilação ou registro completo/parcial concluído. | Exibe protocolo, exames registrados e, em `PARTIAL`, alerta destacado com termos não registrados; códigos `MOCK-*` são fictícios e não há horário de coleta reservado. |
+| `0` | N/A (Sucesso) | Todas | Transpilação ou registro integral concluído. | Exibe protocolo e exames registrados apenas com `CONFIRMED`; códigos `MOCK-*` são fictícios e não há horário de coleta reservado. |
 | `10` | `SpecTranspilationError` | Build-Time | JSON malformado, transporte MCP $\neq$ `"sse"`, referência cruzada inválida (`server_id`, `output_schema_ref`) ou falha no `ast.parse`. | Exibe erro de validação com detalhes do Pydantic (quando disponíveis); não há tabela Rich dedicada. |
 | `20` | `InputImageError` | Run-Time (Pré-ADK) | Imagem inexistente em `/app/inputs`, extensão não suportada, arquivo vazio ou cabeçalho de imagem corrompido. | Exibe alerta indicando o caminho esperado no volume compartilhado e formatos aceitos. |
 | `30` | `InfrastructureUnavailableError` | Run-Time (Preflight) | Falha ao conectar em `mcp-ocr:8001/health`, `mcp-rag:8002/health`, `scheduling-api:8000/health` ou `GEMINI_API_KEY` ausente. | Lista os serviços indisponíveis e sugere `docker compose up -d`. |
@@ -498,7 +585,7 @@ Para validar que a ferramenta atingiu o nível de maturidade esperado na revisã
    * **Volume do Catálogo:** $N_{\text{exames}} \ge 120$ exames laboratoriais distintos indexados no PostgreSQL; o dataset sintético desta entrega contém 150 registros.
    * **Top-1 Accuracy (Exames Impressos):** $\ge 95\%$ na reconciliação do nome extraído para o identificador correto do catálogo sintético.
    * **Top-3 Recall (Exames com Ruído de OCR / Manuscritos):** $\ge 90\%$ utilizando a combinação híbrida ($\alpha = 0.65$).
-   * **Fluxo parcial:** com pelo menos um item encontrado e outro não encontrado, a API persiste ambos os resultados, devolve `PARTIAL` e a CLI distingue claramente o que foi e não foi registrado; com zero itens encontrados, nenhum POST é enviado.
+   * **Fluxo incompleto:** com pelo menos um item encontrado e outro não encontrado, ou com zero itens encontrados, nenhum POST é enviado; a CLI retorna erro e mantém `unmatched_terms` apenas como diagnóstico interno. A API também rejeita POST parcial direto (422, zero inserções).
 3. **Fidelidade e Qualidade do Transpilador:**
    * **$100\%$ de Validação Sintática:** Todo código gerado deve passar em `ast.parse()` e `ruff check` com $0$ erros ou warnings.
    * **$100\%$ de Cobertura das Regras de Negócio da Spec:** Testes unitários cobrindo JSONs inválidos (transporte `stdio` rejeitado, `server_id` inexistente rejeitado, colisão de `output_key` rejeitada).
@@ -534,7 +621,7 @@ desafio-carrefour-verity/              # Nome do diretório; pacote Python: clin
 │   └── clinical_agent_spec.json        # Manifesto JSON de exemplo do agente (Entregável 2)
 ├── assets/
 │   ├── generate_sample_order.py        # Script gerador da imagem de pedido médico fictício
-│   └── pedido_medico_teste.png         # Imagem de teste com PII fictício + manuscrito (Entregável 3)
+│   └── pedido_medico_teste.png         # Imagem digitada e fictícia, bem enquadrada (Entregável 3)
 ├── security/
 │   ├── __init__.py
 │   ├── pii_guardrail.py                # Motor Presidio + Regex BR (CPF, RG, CRM, Nome, Tel)
@@ -585,31 +672,26 @@ desafio-carrefour-verity/              # Nome do diretório; pacote Python: clin
     │   ├── test_rag_hybrid_search.py   # Busca vetorial e seed com mocks
     │   └── test_rag_server.py          # MCP RAG simulado
     ├── integration/
-    │   └── test_scheduling_api.py      # FastAPI POST/GET, PARTIAL e anti-PII com banco mockado
+    │   └── test_scheduling_api.py      # FastAPI POST integral, GET histórico e anti-PII com banco mockado
     └── e2e/
         └── test_full_clinical_flow.py  # Fluxo E2E simulado, sem rede/modelos
 ```
 
 ### 8.2. Geração da Imagem de Teste Fictícia (`assets/pedido_medico_teste.png`)
-Para assegurar reprodutibilidade total e demonstrar robustez com notas manuscritas sem utilizar dados reais:
-* O script `assets/generate_sample_order.py` (utilizando `Pillow`) gera uma imagem simulando um receituário médico digitalizado com leve rotação ($1.2^\circ$), fundo claro e adendo em fonte itálica (simulação visual, não manuscrito real) contendo:
-  * **Cabeçalho com PII Fictício (Alvo do Guardrail):**
-    * `Paciente: Carlos Eduardo Albuquerque (Fictício)`
-    * `CPF: 123.456.789-00 | RG: 12.345.678-9 | Tel: (11) 98765-4321`
-    * `E-mail: carlos.ficticio@exemplo.com.br`
-  * **Corpo Impresso (4 Exames):**
-    1. `Hemograma Completo`
-    2. `Glicemia de Jejum`
-    3. `Hormônio Tireoestimulante (TSH)`
-    4. `Colesterol Total e Frações (Lipidograma)`
-  * **Adendo Manuscrito Simulado (Fonte Cursiva/Manuscrita):**
-    5. `+ Vitamina D (25-Hidroxi) e Ferritina Sérica`
-  * **Rodapé Médico (Alvo do Guardrail):**
-    * `Dra. Mariana Costa Silveira - CRM-SP 145892`
+Para assegurar reprodutibilidade usando apenas dados fictícios e texto digitado:
+* O script `assets/generate_sample_order.py` (utilizando `Pillow`) gera a imagem principal digitada com leve rotação ($1.2^\circ$) e fundo claro. As variantes com blur, sombra, corte e adendo itálico em `assets/fixtures/` são **históricas** e não definem a entrada suportada pela demonstração atual. A imagem principal contém:
+  * **Cabeçalho com PII fictícia (alvo do guardrail):** identidade, CPF, RG, telefone e e-mail inventados (valores definidos em `DEFAULT_ORDER` no gerador).
+  * **Corpo digitado (`Solicito:`):**
+    * `1. Hemoglobina Glicada (HbA1c)`
+    * `2. Glicose Pós-Prandial`
+    * `3. Insulina Basal`
+    * `4. Peptídeo C`
+    * `5. Microalbuminúria Urinária`
+  * **Rodapé:** assinatura médica e aviso fictício digitados. Não há linha manuscrita ou adendo itálico na imagem principal.
 
 ### 8.3. Procedimento Passo a Passo de Execução e Validação (Checklist de Entrega)
 
-Os modelos locais são provisionados nos builds Docker. Os testes automatizados continuam mock-only (sem chamadas a OCR, embeddings, MCP, banco, HTTP ou LLM reais); smokes separados e uma execução com Gemini autorizada demonstram o fluxo com uma imagem **sintética**. A chave fica exclusivamente em `.env`. Veja as capturas em `evidence/` e as limitações no README.
+Os modelos locais são provisionados nos builds Docker. Os testes automatizados continuam mock-only (sem chamadas a OCR, embeddings, MCP, banco, HTTP ou LLM reais); smokes e execuções com Gemini anteriores demonstraram a arquitetura com imagens **sintéticas**; o novo contrato de aceitação integral ainda não foi revalidado em execução real. A chave fica exclusivamente em `.env`. Veja as capturas em `evidence/` e as limitações no README.
 
 #### Etapa 1: Configuração Inicial e Build da Infraestrutura
 ```bash
@@ -650,7 +732,7 @@ docker compose run --rm agent-cli python -m runtime.cli run \
 * **Saída Visual Esperada no Terminal (Rich):** o `run` mostra feedback em português durante a validação de imagem/serviços, extração e proteção de dados, busca RAG, registro e conferência do resultado. Usa indicador animado em TTY e não mostra texto extraído, argumentos nem respostas de ferramentas. Só informa conclusão do registro após validar o estado final. As capturas `evidence/05-run-full.txt` são anteriores a essa melhoria de interface e mantêm a saída original em inglês.
   1. **Smoke OCR separado:** texto sanitizado com `[REDACTED_*]` e nomes de exames preservados (`evidence/02-smoke-ocr.txt`); a CLI não imprime esse texto.
   2. **Smoke RAG separado:** `MOCK-*`, scores e termos sem match (`evidence/02-smoke-rag.json`); a CLI imprime somente nomes/códigos finais, não os scores.
-  3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`/`PARTIAL`, exames registrados e preparo fictício; sem reserva de horário. A execução capturada confirmou 6 exames (`evidence/05-run-full.txt`, `evidence/05-protocol-get.json`).
+  3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`, exames registrados e preparo fictício; sem reserva de horário. As capturas `evidence/05-run-full.txt` e `evidence/05-protocol-get.json` são anteriores à política de registro integral e não são validação do código atual.
 
 #### Etapa 5: Execução da Suíte Completa de Testes Automatizados
 ```bash

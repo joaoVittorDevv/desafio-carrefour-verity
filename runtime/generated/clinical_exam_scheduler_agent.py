@@ -12,7 +12,13 @@ from pydantic import BaseModel, Field, ValidationError
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, SseConnectionParams
 from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import OpenAPIToolset
-from security.adk_callbacks import after_tool_callback, before_model_callback, before_tool_callback
+from security.adk_callbacks import (
+    after_tool_callback,
+    before_model_callback,
+    before_tool_callback,
+    inspect_for_pii,
+    require_complete_order,
+)
 
 
 class AgentPipelineExecutionError(Exception):
@@ -62,9 +68,7 @@ class ResolvedExamsListOutput(BaseModel):
 class BookingConfirmationOutput(BaseModel):
     protocol_id: str = Field(description="Número de protocolo único gerado pela API")
 
-    status: str = Field(
-        description="CONFIRMED (todos registrados) ou PARTIAL (somente parte registrada)"
-    )
+    status: str = Field(description="CONFIRMED para novos registros")
 
     scheduled_at: str = Field(
         description="Data/hora ISO-8601 do registro da solicitação; não é horário reservado para coleta"
@@ -109,6 +113,17 @@ OUTPUT_SCHEMAS = {
 }
 
 
+INPUT_SCHEMAS = {
+    "rag_lookup_agent": ExtractedExamsOutput,
+    "scheduling_agent": ResolvedExamsListOutput,
+}
+
+INPUT_KEYS = {
+    "rag_lookup_agent": "extracted_exams",
+    "scheduling_agent": "resolved_exams",
+}
+
+
 def _validate_output(key):
     def callback(callback_context):
         value = callback_context.state.get(key)
@@ -144,24 +159,67 @@ def _validate_output(key):
                 or not output.get("exams")
                 or output.get("sanitized_text") != evidence["sanitized_text"]
                 or output.get("pii_entities_masked") != evidence["pii_entities_masked"]
-                or any(
-                    item["raw_name"].casefold() not in evidence["sanitized_text"].casefold()
-                    for item in output["exams"]
-                )
             ):
                 raise AgentPipelineExecutionError("OCR output lacks verified tool evidence")
+            numbered = re.findall(r"(?m)^\s*\d+[.)]\s*([^\n]+?)\s*$", evidence["sanitized_text"])
+            if (
+                not numbered
+                or [name.strip().casefold() for name in numbered]
+                != [item["raw_name"].strip().casefold() for item in output["exams"]]
+                or any(item["is_handwritten_hint"] for item in output["exams"])
+                or re.search(r"(?m)^\s*\+", evidence["sanitized_text"])
+            ):
+                raise AgentPipelineExecutionError("OCR exam lines differ from extracted exams")
 
         if key == "resolved_exams":
-            if not output.get("matched_exams") or output != callback_context.state.get(
-                "_rag_verified"
-            ):
+            if output != callback_context.state.get("_rag_verified"):
                 raise AgentPipelineExecutionError("RAG output lacks verified tool evidence")
+            require_complete_order(callback_context.state.get("extracted_exams"), output)
 
         if key == "booking_result":
             if output != callback_context.state.get("_booking_verified"):
                 raise AgentPipelineExecutionError("Booking output lacks verified API response")
 
         callback_context.state[key] = output
+        return None
+
+    return callback
+
+
+def _validate_input(agent_name):
+    """Typed input contract: validate the upstream payload before the LLM runs."""
+
+    def callback(callback_context):
+        raw = callback_context.state.get(INPUT_KEYS[agent_name])
+        try:
+            schema = INPUT_SCHEMAS[agent_name]
+            if isinstance(raw, str):
+                # Same markdown-fence stripping as _validate_output for LLM-wrapped JSON.
+                raw = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", raw.strip())
+                result = schema.model_validate_json(raw)
+            elif isinstance(raw, dict):
+                result = schema.model_validate(raw)
+            else:
+                raise TypeError("missing upstream input")
+        except (ValidationError, ValueError, TypeError):
+            raise AgentPipelineExecutionError(
+                f"Invalid input for {agent_name}; no registration confirmed"
+            ) from None
+        inspect_for_pii(result)
+        normalized = result.model_dump(mode="json")
+        if "exams" in normalized and not normalized["exams"]:
+            raise AgentPipelineExecutionError(
+                f"Invalid input for {agent_name}; no registration confirmed"
+            )
+        if "matched_exams" in normalized:
+            require_complete_order(callback_context.state.get("extracted_exams"), normalized)
+            verified = callback_context.state.get("_rag_verified")
+            if verified is None or normalized != verified:
+                raise AgentPipelineExecutionError(
+                    f"Invalid input for {agent_name}; differs from verified RAG evidence"
+                )
+        callback_context.state[INPUT_KEYS[agent_name]] = normalized
+        callback_context.state[f"temp:{agent_name}_input"] = normalized
         return None
 
     return callback
@@ -189,8 +247,10 @@ def build_pipeline():
         LlmAgent(
             name="ocr_intake_agent",
             model="gemini-2.5-flash",
-            instruction="Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados (incluindo itens manuscritos ao final do pedido). Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (true apenas para itens da nota manuscrita adicional).",
+            instruction="Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados do pedido digitado; não processe manuscritos ou adendos. Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (false para todos os itens do pedido digitado).",
             output_key="extracted_exams",
+            output_schema=ExtractedExamsOutput,
+            include_contents="default",
             tools=[
                 MCPToolset(
                     connection_params=server_params["mcp_ocr"],
@@ -208,8 +268,10 @@ def build_pipeline():
         LlmAgent(
             name="rag_lookup_agent",
             model="gemini-2.5-flash",
-            instruction="Leia os exames extraídos em {extracted_exams}. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name extraídos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir.",
+            instruction="Os exames extraídos chegam como JSON estruturado na mensagem do usuário desta etapa (schema ExtractedExamsOutput); não há interpolação no prompt do sistema. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name recebidos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir. Se algum termo ficar sem correspondência, o pedido inteiro será recusado sem registro.",
             output_key="resolved_exams",
+            output_schema=ResolvedExamsListOutput,
+            include_contents="none",
             tools=[
                 MCPToolset(
                     connection_params=server_params["mcp_rag"],
@@ -220,6 +282,7 @@ def build_pipeline():
             before_tool_callback=before_tool_callback,
             after_tool_callback=after_tool_callback,
             after_agent_callback=_validate_output("resolved_exams"),
+            before_agent_callback=_validate_input("rag_lookup_agent"),
         )
     )
 
@@ -227,8 +290,10 @@ def build_pipeline():
         LlmAgent(
             name="scheduling_agent",
             model="gemini-2.5-flash",
-            instruction="Você coordena o registro de solicitações fictícias. Leia matched_exams e unmatched_terms em {resolved_exams}. Se matched_exams estiver vazio, não invoque a API e encerre com erro. Caso contrário, invoque 'create_exam_appointment' apenas com os itens encontrados e todos os seus metadados, enviando unmatched_terms para auditoria; SEMPRE invoque a ferramenta antes de responder e nunca simule ou antecipe a resposta da API. Responda SOMENTE com JSON válido, sem cercas de código: reproduza a resposta completa da API EXATAMENTE como retornada, com todos os campos e valores preservados. Informe claramente o que foi registrado e o que não foi; PARTIAL significa registro parcial da solicitação, nunca reserva de horário. Não invente exames, códigos ou horários.",
+            instruction="Você coordena o registro fictício apenas de pedidos digitados completos. Receba o JSON estruturado ResolvedExamsListOutput. Se houver qualquer unmatched_terms ou se a lista matched_exams estiver vazia, não invoque a API. Caso contrário invoque create_exam_appointment com todos os matched_exams exatamente como recebidos e unmatched_terms vazio. SEMPRE invoque a ferramenta antes de responder; não simule resposta. Responda SOMENTE com JSON válido, sem cercas: reproduza a resposta completa da API EXATAMENTE como retornada, sem inventar exames, códigos nem horários. CONFIRMED é registro, não reserva de horário.",
             output_key="booking_result",
+            output_schema=BookingConfirmationOutput,
+            include_contents="none",
             tools=[
                 OpenAPIToolset(
                     spec_dict=service_specs["scheduling_fastapi"],
@@ -240,6 +305,7 @@ def build_pipeline():
             before_tool_callback=before_tool_callback,
             after_tool_callback=after_tool_callback,
             after_agent_callback=_validate_output("booking_result"),
+            before_agent_callback=_validate_input("scheduling_agent"),
         )
     )
 

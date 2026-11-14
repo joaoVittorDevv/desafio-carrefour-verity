@@ -36,11 +36,11 @@ def health_check(connection=Depends(get_connection)):
     "/api/v1/appointments", response_model=AppointmentCreateResponse,
     status_code=status.HTTP_201_CREATED, operation_id="create_exam_appointment",
     summary="Register resolved synthetic laboratory exams",
-    description="Atomically registers matched exams and unresolved terms. No collection time is reserved.",
+    description="Atomically registers only complete matched orders. No collection time is reserved.",
 )
 def create_exam_appointment(request: AppointmentCreateRequest, connection=Depends(get_connection)):
     protocol = new_protocol_id()
-    state = "PARTIAL" if request.unmatched_terms else "CONFIRMED"
+    state = "CONFIRMED"
     # A single transaction commits the parent, all items and unmatched terms together.
     with connection:
         with connection.cursor() as cursor:

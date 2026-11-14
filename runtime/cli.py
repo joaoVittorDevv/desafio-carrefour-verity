@@ -79,6 +79,7 @@ def check_image(image: Path, volume: Path):
 def validate_confirmation(state):
     """Fail closed if the response differs from the accepted RAG items or terms."""
     from pydantic import ValidationError
+    from security.adk_callbacks import require_complete_order
 
     try:
         resolved = state["resolved_exams"]
@@ -89,11 +90,14 @@ def validate_confirmation(state):
         if isinstance(booking, str):
             import json
             booking = json.loads(booking)
+        require_complete_order(state["extracted_exams"], resolved)
+        if resolved != state["_rag_verified"] or booking != state["_booking_verified"]:
+            raise ValueError("mismatch")
         matched, unmatched = resolved["matched_exams"], resolved["unmatched_terms"]
         if (not matched or booking["scheduled_exams"] != matched or
                 booking["unmatched_terms"] != unmatched or
                 booking["total_exams_scheduled"] != len(matched) or
-                booking["status"] != ("PARTIAL" if unmatched else "CONFIRMED") or
+                booking["status"] != "CONFIRMED" or
                 any(not item["tuss_code"].startswith("MOCK-") for item in matched)):
             raise ValueError("mismatch")
         return booking
@@ -178,6 +182,10 @@ def run(
     except AgentPipelineExecutionError:
         _fail(40, "Não foi possível confirmar a solicitação. Se a API chegou a ser chamada, consulte-a antes de repetir.")
     except Exception as exc:
+        from security.adk_callbacks import IncompleteOrderError
+
+        if isinstance(exc, IncompleteOrderError):
+            _fail(40, "Pedido incompleto ou não reconciliado; solicitação não registrada.")
         try:
             from security import GuardrailViolation
         except ImportError:
@@ -185,12 +193,10 @@ def run(
         if isinstance(exc, GuardrailViolation):
             _fail(50, "Não foi possível garantir a privacidade. Consulte a API antes de repetir a operação.")
         _fail(40, "Não foi possível confirmar a solicitação. Se a API chegou a ser chamada, consulte-a antes de repetir.")
-    situation = {"CONFIRMED": "confirmada", "PARTIAL": "parcial"}[booking["status"]]
+    situation = "confirmada"
     console.print(f"Protocolo: {booking['protocol_id']} (solicitação {situation}); registrada em {booking['scheduled_at']} (não é uma reserva de horário).")
     for item in booking["scheduled_exams"]:
         console.print(f"Registrado: {item['official_name']} ({item['tuss_code']} fictício)")
-    for term in booking["unmatched_terms"]:
-        console.print(f"[yellow]Não registrado: {term}[/yellow]")
     console.print(f"Preparo simulado: {booking['preparation_summary']}")
 
 

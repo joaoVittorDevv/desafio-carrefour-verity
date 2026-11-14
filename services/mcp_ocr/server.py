@@ -1,5 +1,7 @@
 """MCP OCR over SSE; tool responses never carry unsanitized OCR text."""
 
+import re
+
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -10,12 +12,21 @@ from services.mcp_ocr.ocr_engine import extract_text
 
 mcp = FastMCP("mcp-ocr", host="0.0.0.0", port=8001)
 
+EXAM_HEADING = re.compile(r"^\s*Solicito\s*:\s*$", re.IGNORECASE)
+NUMBERED_EXAM = re.compile(r"^\s*\d+[.)]\s*[^\W\d_]{2,}", re.UNICODE)
+
 
 @mcp.tool()
 def extract_and_anonymize_medical_order(file_path: str) -> dict:
     try:
         raw, confidence, name = extract_text(file_path)
         if confidence < 0.8:
+            raise GuardrailViolation()
+        lines = raw.splitlines()
+        if not any(
+            EXAM_HEADING.match(line) and any(NUMBERED_EXAM.match(item) for item in lines[index + 1:])
+            for index, line in enumerate(lines)
+        ):
             raise GuardrailViolation()
         analyzer = local_analyzer()
         if analyzer is None:

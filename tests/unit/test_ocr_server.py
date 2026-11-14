@@ -7,7 +7,8 @@ import pytest
 from security import GuardrailViolation
 
 
-def test_server_sse_health_and_sanitized_tool(monkeypatch):
+@pytest.fixture
+def server(monkeypatch):
     class FakeMCP:
         def __init__(self, *args, **kwargs):
             assert kwargs["port"] == 8001
@@ -29,10 +30,16 @@ def test_server_sse_health_and_sanitized_tool(monkeypatch):
     monkeypatch.setitem(sys.modules, "starlette.routing", fake_routing)
     sys.modules.pop("services.mcp_ocr.server", None)
     server = importlib.import_module("services.mcp_ocr.server")
-    monkeypatch.setattr(server, "extract_text", lambda path: ("Paciente: Ana Lima\nHemograma Completo", 0.95, "pedido.png"))
+    yield server
+    sys.modules.pop("services.mcp_ocr.server", None)
+
+
+def test_server_sse_health_and_sanitized_tool(server, monkeypatch):
+    monkeypatch.setattr(server, "extract_text", lambda path: (
+        "Paciente: Ana Lima\nSolicito:\n1. Hemograma Completo", 0.95, "pedido.png"))
     monkeypatch.setattr(server, "local_analyzer", lambda: SimpleNamespace(analyze=lambda **kw: []))
     result = server.extract_and_anonymize_medical_order("/app/inputs/pedido.png")
-    assert result["sanitized_text"] == "Paciente: [REDACTED_PERSON]\nHemograma Completo"
+    assert result["sanitized_text"] == "Paciente: [REDACTED_PERSON]\nSolicito:\n1. Hemograma Completo"
     assert result["pii_redaction_report"]["total_redacted"] == 1
     assert server.app.router.routes[0].path == "/health"
     assert server.app.router.routes[1:] == ["/sse", "/messages"]
@@ -47,4 +54,24 @@ def test_server_sse_health_and_sanitized_tool(monkeypatch):
     with pytest.raises(GuardrailViolation):
         server.extract_and_anonymize_medical_order("/app/inputs/pedido.png")
     assert asyncio.run(server.health(None)) == {"status": "unavailable", "status_code": 503}
-    sys.modules.pop("services.mcp_ocr.server", None)
+
+
+@pytest.mark.parametrize("raw", ["X", "Paciente: Ana Lima\n1. Hemograma Completo",
+                                 "Paciente: Ana Lima\nSolicito:\n1.  "])
+def test_rejects_inadequate_high_confidence_ocr(server, monkeypatch, raw):
+    monkeypatch.setattr(server, "extract_text", lambda path: (raw, 0.99, "marina__good.png"))
+    monkeypatch.setattr(server, "local_analyzer", lambda: SimpleNamespace(analyze=lambda **kw: []))
+    with pytest.raises(GuardrailViolation) as exc:
+        server.extract_and_anonymize_medical_order("/app/inputs/marina__good.png")
+    assert raw not in str(exc.value)
+
+
+def test_accepts_clear_typed_order_with_masked_pii(server, monkeypatch):
+    raw = "Paciente: Ana Lima\nCPF: 123.456.789-00\nSolicito:\n1. Hemograma Completo"
+    monkeypatch.setattr(server, "extract_text", lambda path: (raw, 0.95, "pedido.png"))
+    monkeypatch.setattr(server, "local_analyzer", lambda: SimpleNamespace(analyze=lambda **kw: []))
+    result = server.extract_and_anonymize_medical_order("/app/inputs/pedido.png")
+    assert result["sanitized_text"] == (
+        "Paciente: [REDACTED_PERSON]\nCPF: [REDACTED_CPF]\nSolicito:\n1. Hemograma Completo"
+    )
+    assert result["pii_redaction_report"]["total_redacted"] == 2

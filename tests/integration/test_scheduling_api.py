@@ -91,22 +91,26 @@ def payload():
                    "official_name": "Hemograma Completo (simulado)",
                    "category": "Hematologia", "fasting_hours": 0,
                    "confidence_score": 0.98}],
-        "unmatched_terms": ["Exame ilegível"],
+        "unmatched_terms": [],
         "clinical_observations": "Pedido fictício processado com PII anonimizada",
     }
 
 
-def test_partial_post_get_same_contract(api, payload):
+def test_partial_post_rejected_but_historical_get_supported(api, payload):
     client, db = api
-    created = client.post("/api/v1/appointments", json=payload)
-    assert created.status_code == 201, created.text
-    body = created.json()
-    assert body["status"] == "PARTIAL"
-    assert body["scheduled_exams"] == payload["exams"]
-    assert body["unmatched_terms"] == payload["unmatched_terms"]
-    assert body["preparation_summary"].startswith("Preparo simulado")
-    assert client.get(f"/api/v1/appointments/{body['protocol_id']}").json() == body
-    assert len(db.items) == 1
+    payload["unmatched_terms"] = ["Exame ilegível"]
+    assert client.post("/api/v1/appointments", json=payload).status_code == 422
+    assert not db.appointments and not db.items
+    protocol = "LAB-2026-11-12-ABCDEFGHIJ"
+    db.appointments[protocol] = (protocol, "PARTIAL", datetime(2026, 11, 12, tzinfo=timezone.utc),
+                                 payload["preferred_unit"], payload["unmatched_terms"], None)
+    exam = payload["exams"][0]
+    db.items.append((protocol, exam["tuss_code"], exam["official_name"], exam["original_query"],
+                     exam["category"], exam["confidence_score"], exam["fasting_hours"]))
+    historical = client.get(f"/api/v1/appointments/{protocol}")
+    assert historical.status_code == 200
+    assert historical.json()["status"] == "PARTIAL"
+    assert historical.json()["unmatched_terms"] == payload["unmatched_terms"]
 
 
 def test_confirmed_and_not_found(api, payload):

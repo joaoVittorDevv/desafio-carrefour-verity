@@ -115,3 +115,26 @@ def test_exam_vocabulary_includes_categories():
     assert _looks_like_exam("Endocrinologia")
     assert _looks_like_exam("Hemograma Completo (simulado)")
     assert not _looks_like_exam("Carlos Eduardo Albuquerque")
+
+
+def test_person_pattern_tolerates_json_escaped_sanitized_text():
+    """Regression: typed payloads travel JSON-escaped; \n becomes literal backslash-n."""
+    import json
+
+    payload = json.dumps({"sanitized_text": "Paciente: [REDACTED_PERSON]\nCPF: [REDACTED_CPF]"},
+                         ensure_ascii=False)
+    assert_no_pii(payload)
+    leaked = json.dumps({"a": "Paciente: Carlos Eduardo\nCPF: 123.456.789-00"}, ensure_ascii=False)
+    with pytest.raises(GuardrailViolation):
+        assert_no_pii(leaked)
+
+
+def test_person_pattern_placeholder_at_json_value_end():
+    """Closing JSON quote also delimits a placeholder that ends the value."""
+    import json
+
+    payload = json.dumps({"sanitized_text": "Pedido\nPaciente: [REDACTED_PERSON]"}, ensure_ascii=False)
+    assert_no_pii(payload)
+    leaked = json.dumps({"a": "Paciente: Carlos Eduardo"}, ensure_ascii=False)
+    with pytest.raises(GuardrailViolation):
+        assert_no_pii(leaked)
