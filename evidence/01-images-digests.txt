@@ -1,0 +1,9 @@
+REPOSITORY                                TAG            DIGEST                                                                    IMAGE ID       CREATED          SIZE
+desafio-carrefour-verity-agent-cli        latest         <none>                                                                    b3793fc620f7   7 minutes ago    368MB
+desafio-carrefour-verity-scheduling-api   latest         <none>                                                                    f801a5233c4c   8 minutes ago    527MB
+desafio-carrefour-verity-mcp-ocr          latest         <none>                                                                    3dd3b4506f28   21 minutes ago   831MB
+desafio-carrefour-verity-mcp-rag          latest         <none>                                                                    53eb569f54f8   39 minutes ago   538MB
+desafio-carrefour-verity-agent-cli	368MB
+desafio-carrefour-verity-scheduling-api	527MB
+desafio-carrefour-verity-mcp-ocr	831MB
+desafio-carrefour-verity-mcp-rag	538MB

@@ -1,0 +1,1 @@
+"""Synthetic catalog MCP service."""

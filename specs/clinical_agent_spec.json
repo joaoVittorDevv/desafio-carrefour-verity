@@ -1,0 +1,206 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "clinical_exam_scheduler",
+    "description": "Assistente CLI para extração de exames médicos via OCR, reconciliação RAG e agendamento via FastAPI"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": [
+      "PERSON",
+      "CPF",
+      "RG",
+      "PHONE_NUMBER",
+      "EMAIL_ADDRESS",
+      "CRM"
+    ],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "ExtractedExamRaw": {
+      "description": "Item bruto extraído do pedido médico",
+      "fields": {
+        "raw_name": {
+          "type": "str",
+          "description": "Nome do exame como consta no pedido médico"
+        },
+        "is_handwritten_hint": {
+          "type": "bool",
+          "description": "Indica se parece vir de nota/observação adicional"
+        }
+      }
+    },
+    "ExtractedExamsOutput": {
+      "description": "Resultado estruturado da etapa de OCR e sanitização de PII",
+      "fields": {
+        "sanitized_text": {
+          "type": "str",
+          "description": "Texto completo após anonimização de dados sensíveis"
+        },
+        "pii_entities_masked": {
+          "type": "int",
+          "description": "Quantidade de entidades sensíveis mascaradas"
+        },
+        "exams": {
+          "type": "list[ExtractedExamRaw]",
+          "description": "Lista de exames extraídos da imagem"
+        }
+      }
+    },
+    "ResolvedExamItem": {
+      "description": "Exame reconciliado com o catálogo sintético no banco vetorial",
+      "fields": {
+        "original_query": {
+          "type": "str",
+          "description": "Termo original extraído no OCR"
+        },
+        "tuss_code": {
+          "type": "str",
+          "description": "Identificador fictício do catálogo (ex: MOCK-0001); campo legado, não é código TUSS oficial"
+        },
+        "official_name": {
+          "type": "str",
+          "description": "Nome padronizado do exame no catálogo"
+        },
+        "category": {
+          "type": "str",
+          "description": "Categoria laboratorial (ex: Hematologia, Bioquímica)"
+        },
+        "fasting_hours": {
+          "type": "int",
+          "description": "Horas de jejum necessárias"
+        },
+        "confidence_score": {
+          "type": "float",
+          "description": "Score híbrido de similaridade entre 0.0 e 1.0"
+        }
+      }
+    },
+    "ResolvedExamsListOutput": {
+      "description": "Lista consolidada de exames reconciliados pelo RAG",
+      "fields": {
+        "matched_exams": {
+          "type": "list[ResolvedExamItem]",
+          "description": "Exames encontrados na base com seus códigos"
+        },
+        "unmatched_terms": {
+          "type": "list[str]",
+          "description": "Termos que não atingiram o score mínimo"
+        }
+      }
+    },
+    "BookingConfirmationOutput": {
+      "description": "Retorno completo da solicitação registrada na FastAPI, inclusive registros parciais",
+      "fields": {
+        "protocol_id": {
+          "type": "str",
+          "description": "Número de protocolo único gerado pela API"
+        },
+        "status": {
+          "type": "str",
+          "description": "CONFIRMED (todos registrados) ou PARTIAL (somente parte registrada)"
+        },
+        "scheduled_at": {
+          "type": "str",
+          "description": "Data/hora ISO-8601 do registro da solicitação; não é horário reservado para coleta"
+        },
+        "preferred_unit": {
+          "type": "str",
+          "description": "Unidade indicada na solicitação"
+        },
+        "max_fasting_hours_required": {
+          "type": "int",
+          "description": "Maior duração fictícia de jejum entre os exames registrados"
+        },
+        "preparation_summary": {
+          "type": "str",
+          "description": "Resumo fictício de preparo/jejum; não substitui orientação clínica"
+        },
+        "total_exams_scheduled": {
+          "type": "int",
+          "description": "Quantidade de exames registrados"
+        },
+        "scheduled_exams": {
+          "type": "list[ResolvedExamItem]",
+          "description": "Exames efetivamente registrados, com todos os metadados da reconciliação"
+        },
+        "unmatched_terms": {
+          "type": "list[str]",
+          "description": "Exames solicitados não encontrados e não registrados"
+        }
+      }
+    }
+  },
+  "mcp_servers": [
+    {
+      "id": "mcp_ocr",
+      "transport": "sse",
+      "url": "http://mcp-ocr:8001/sse",
+      "timeout": 30
+    },
+    {
+      "id": "mcp_rag",
+      "transport": "sse",
+      "url": "http://mcp-rag:8002/sse",
+      "timeout": 30
+    }
+  ],
+  "openapi_services": [
+    {
+      "id": "scheduling_fastapi",
+      "spec_url": "http://scheduling-api:8000/openapi.json"
+    }
+  ],
+  "orchestration": {
+    "type": "sequential",
+    "name": "clinical_scheduling_pipeline",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "ocr_intake_agent",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você é um agente especialista em triagem de pedidos médicos. Invoque a ferramenta 'extract_and_anonymize_medical_order' passando o file_path recebido do usuário. A partir do texto sanitizado retornado, identifique todos os exames laboratoriais solicitados (incluindo itens manuscritos ao final do pedido). Responda SOMENTE com um objeto JSON válido, sem cercas de código markdown, seguindo exatamente o schema ExtractedExamsOutput: sanitized_text copiado EXATAMENTE como retornado pela ferramenta (sem resumir, sem alterar, sem omitir); pii_entities_masked é o número inteiro do campo total_redacted dentro de pii_redaction_report (apenas o inteiro, nunca o objeto); exams como lista de objetos com os campos raw_name (nome do exame como consta no texto) e is_handwritten_hint (true apenas para itens da nota manuscrita adicional).",
+        "mcp_bindings": [
+          {
+            "server_id": "mcp_ocr",
+            "allowed_tools": [
+              "extract_and_anonymize_medical_order"
+            ]
+          }
+        ],
+        "output_key": "extracted_exams",
+        "output_schema_ref": "ExtractedExamsOutput"
+      },
+      {
+        "name": "rag_lookup_agent",
+        "model": "gemini-2.5-flash",
+        "instruction": "Leia os exames extraídos em {extracted_exams}. Invoque a ferramenta 'search_exam_catalog_hybrid' enviando a lista completa de nomes de exames (na mesma ordem e com os mesmos raw_name extraídos) para recuperar identificadores fictícios, instruções simuladas de jejum e score de confiança. Nunca apresente identificadores como códigos oficiais TUSS/CBHPM. Responda SOMENTE com JSON válido, sem cercas de código: matched_exams e unmatched_terms EXATAMENTE como retornados pela ferramenta, com todos os campos de cada item (original_query, tuss_code, official_name, category, fasting_hours, confidence_score) preservados sem arredondar nem resumir.",
+        "mcp_bindings": [
+          {
+            "server_id": "mcp_rag",
+            "allowed_tools": [
+              "search_exam_catalog_hybrid"
+            ]
+          }
+        ],
+        "output_key": "resolved_exams",
+        "output_schema_ref": "ResolvedExamsListOutput"
+      },
+      {
+        "name": "scheduling_agent",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você coordena o registro de solicitações fictícias. Leia matched_exams e unmatched_terms em {resolved_exams}. Se matched_exams estiver vazio, não invoque a API e encerre com erro. Caso contrário, invoque 'create_exam_appointment' apenas com os itens encontrados e todos os seus metadados, enviando unmatched_terms para auditoria; SEMPRE invoque a ferramenta antes de responder e nunca simule ou antecipe a resposta da API. Responda SOMENTE com JSON válido, sem cercas de código: reproduza a resposta completa da API EXATAMENTE como retornada, com todos os campos e valores preservados. Informe claramente o que foi registrado e o que não foi; PARTIAL significa registro parcial da solicitação, nunca reserva de horário. Não invente exames, códigos ou horários.",
+        "openapi_bindings": [
+          {
+            "service_id": "scheduling_fastapi",
+            "allowed_operations": [
+              "create_exam_appointment"
+            ]
+          }
+        ],
+        "output_key": "booking_result",
+        "output_schema_ref": "BookingConfirmationOutput"
+      }
+    ]
+  }
+}

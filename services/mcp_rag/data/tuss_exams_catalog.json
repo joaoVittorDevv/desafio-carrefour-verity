@@ -1,0 +1,1352 @@
+[
+  {
+    "tuss_code": "MOCK-0001",
+    "official_name": "Hemograma Completo (simulado)",
+    "synonyms": "Hemograma;Hemo completo",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0002",
+    "official_name": "Glicemia de Jejum (simulado)",
+    "synonyms": "Glicemia jejum;Glicose",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0003",
+    "official_name": "Hormônio Tireoestimulante (TSH) (simulado)",
+    "synonyms": "TSH ultra;TSH",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0004",
+    "official_name": "Vitamina D (25-Hidroxi) (simulado)",
+    "synonyms": "Vitamina D 25-OH",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0005",
+    "official_name": "Ferritina Sérica (simulado)",
+    "synonyms": "Ferritina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0006",
+    "official_name": "Colesterol Total e Frações (Lipidograma) (simulado)",
+    "synonyms": "Lipidograma;Perfil lipídico",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0007",
+    "official_name": "Colesterol Total (simulado)",
+    "synonyms": "Colesterol Total",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0008",
+    "official_name": "Colesterol HDL (simulado)",
+    "synonyms": "Colesterol HDL",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0009",
+    "official_name": "Colesterol LDL (simulado)",
+    "synonyms": "Colesterol LDL",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0010",
+    "official_name": "Triglicerídeos (simulado)",
+    "synonyms": "Triglicerídeos",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0011",
+    "official_name": "Hemoglobina Glicada (HbA1c) (simulado)",
+    "synonyms": "Hemoglobina Glicada (HbA1c)",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0012",
+    "official_name": "Insulina de Jejum (simulado)",
+    "synonyms": "Insulina de Jejum",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0013",
+    "official_name": "Peptídeo C (simulado)",
+    "synonyms": "Peptídeo C",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0014",
+    "official_name": "Ureia (simulado)",
+    "synonyms": "Ureia",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0015",
+    "official_name": "Creatinina (simulado)",
+    "synonyms": "Creatinina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0016",
+    "official_name": "Ácido Úrico (simulado)",
+    "synonyms": "Ácido Úrico",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0017",
+    "official_name": "Sódio (simulado)",
+    "synonyms": "Sódio",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0018",
+    "official_name": "Potássio (simulado)",
+    "synonyms": "Potássio",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0019",
+    "official_name": "Cloro (simulado)",
+    "synonyms": "Cloro",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0020",
+    "official_name": "Cálcio Total (simulado)",
+    "synonyms": "Cálcio Total",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0021",
+    "official_name": "Cálcio Ionizado (simulado)",
+    "synonyms": "Cálcio Ionizado",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0022",
+    "official_name": "Magnésio (simulado)",
+    "synonyms": "Magnésio",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0023",
+    "official_name": "Fósforo (simulado)",
+    "synonyms": "Fósforo",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0024",
+    "official_name": "Ferro Sérico (simulado)",
+    "synonyms": "Ferro Sérico",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0025",
+    "official_name": "Transferrina (simulado)",
+    "synonyms": "Transferrina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0026",
+    "official_name": "Saturação de Transferrina (simulado)",
+    "synonyms": "Saturação de Transferrina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0027",
+    "official_name": "Capacidade Total de Ligação do Ferro (simulado)",
+    "synonyms": "Capacidade Total de Ligação do Ferro",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0028",
+    "official_name": "Proteína C Reativa (simulado)",
+    "synonyms": "Proteína C Reativa",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0029",
+    "official_name": "Proteína C Reativa Ultrassensível (simulado)",
+    "synonyms": "Proteína C Reativa Ultrassensível",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0030",
+    "official_name": "Velocidade de Hemossedimentação (simulado)",
+    "synonyms": "Velocidade de Hemossedimentação",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0031",
+    "official_name": "Albumina (simulado)",
+    "synonyms": "Albumina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0032",
+    "official_name": "Proteínas Totais (simulado)",
+    "synonyms": "Proteínas Totais",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0033",
+    "official_name": "Eletroforese de Proteínas (simulado)",
+    "synonyms": "Eletroforese de Proteínas",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0034",
+    "official_name": "Bilirrubina Total (simulado)",
+    "synonyms": "Bilirrubina Total",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0035",
+    "official_name": "Bilirrubina Direta (simulado)",
+    "synonyms": "Bilirrubina Direta",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0036",
+    "official_name": "Bilirrubina Indireta (simulado)",
+    "synonyms": "Bilirrubina Indireta",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0037",
+    "official_name": "TGO (AST) (simulado)",
+    "synonyms": "TGO (AST)",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0038",
+    "official_name": "TGP (ALT) (simulado)",
+    "synonyms": "TGP (ALT)",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0039",
+    "official_name": "Gama GT (simulado)",
+    "synonyms": "Gama GT",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0040",
+    "official_name": "Fosfatase Alcalina (simulado)",
+    "synonyms": "Fosfatase Alcalina",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0041",
+    "official_name": "Desidrogenase Lática (simulado)",
+    "synonyms": "Desidrogenase Lática",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0042",
+    "official_name": "Creatinoquinase Total (simulado)",
+    "synonyms": "Creatinoquinase Total",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0043",
+    "official_name": "CK-MB (simulado)",
+    "synonyms": "CK-MB",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0044",
+    "official_name": "Troponina I (simulado)",
+    "synonyms": "Troponina I",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0045",
+    "official_name": "Amilase (simulado)",
+    "synonyms": "Amilase",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0046",
+    "official_name": "Lipase (simulado)",
+    "synonyms": "Lipase",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0047",
+    "official_name": "T4 Livre (simulado)",
+    "synonyms": "T4 Livre",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0048",
+    "official_name": "T4 Total (simulado)",
+    "synonyms": "T4 Total",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0049",
+    "official_name": "T3 Livre (simulado)",
+    "synonyms": "T3 Livre",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0050",
+    "official_name": "T3 Total (simulado)",
+    "synonyms": "T3 Total",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0051",
+    "official_name": "Anticorpos Anti-TPO (simulado)",
+    "synonyms": "Anticorpos Anti-TPO",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0052",
+    "official_name": "Anticorpos Anti-Tireoglobulina (simulado)",
+    "synonyms": "Anticorpos Anti-Tireoglobulina",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0053",
+    "official_name": "Tireoglobulina (simulado)",
+    "synonyms": "Tireoglobulina",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0054",
+    "official_name": "Cortisol Basal (simulado)",
+    "synonyms": "Cortisol Basal",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0055",
+    "official_name": "ACTH (simulado)",
+    "synonyms": "ACTH",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0056",
+    "official_name": "Prolactina (simulado)",
+    "synonyms": "Prolactina",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0057",
+    "official_name": "FSH (simulado)",
+    "synonyms": "FSH",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0058",
+    "official_name": "LH (simulado)",
+    "synonyms": "LH",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0059",
+    "official_name": "Estradiol (simulado)",
+    "synonyms": "Estradiol",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0060",
+    "official_name": "Progesterona (simulado)",
+    "synonyms": "Progesterona",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0061",
+    "official_name": "Testosterona Total (simulado)",
+    "synonyms": "Testosterona Total",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0062",
+    "official_name": "Testosterona Livre (simulado)",
+    "synonyms": "Testosterona Livre",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0063",
+    "official_name": "SHBG (simulado)",
+    "synonyms": "SHBG",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0064",
+    "official_name": "DHEA-S (simulado)",
+    "synonyms": "DHEA-S",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0065",
+    "official_name": "PTH (simulado)",
+    "synonyms": "PTH",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0066",
+    "official_name": "Vitamina B12 (simulado)",
+    "synonyms": "Vitamina B12",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0067",
+    "official_name": "Ácido Fólico (simulado)",
+    "synonyms": "Ácido Fólico",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0068",
+    "official_name": "Homocisteína (simulado)",
+    "synonyms": "Homocisteína",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0069",
+    "official_name": "Zinco (simulado)",
+    "synonyms": "Zinco",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0070",
+    "official_name": "Cobre (simulado)",
+    "synonyms": "Cobre",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0071",
+    "official_name": "Selênio (simulado)",
+    "synonyms": "Selênio",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0072",
+    "official_name": "Vitamina A (simulado)",
+    "synonyms": "Vitamina A",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0073",
+    "official_name": "Vitamina E (simulado)",
+    "synonyms": "Vitamina E",
+    "category": "Bioquímica",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0074",
+    "official_name": "Tempo de Protrombina (TP) (simulado)",
+    "synonyms": "Tempo de Protrombina (TP)",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0075",
+    "official_name": "Tempo de Tromboplastina Parcial (TTPa) (simulado)",
+    "synonyms": "Tempo de Tromboplastina Parcial (TTPa)",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0076",
+    "official_name": "Fibrinogênio (simulado)",
+    "synonyms": "Fibrinogênio",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0077",
+    "official_name": "D-Dímero (simulado)",
+    "synonyms": "D-Dímero",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0078",
+    "official_name": "Antitrombina III (simulado)",
+    "synonyms": "Antitrombina III",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0079",
+    "official_name": "Proteína C Funcional (simulado)",
+    "synonyms": "Proteína C Funcional",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0080",
+    "official_name": "Proteína S Funcional (simulado)",
+    "synonyms": "Proteína S Funcional",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0081",
+    "official_name": "Anticoagulante Lúpico (simulado)",
+    "synonyms": "Anticoagulante Lúpico",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0082",
+    "official_name": "Fator VIII (simulado)",
+    "synonyms": "Fator VIII",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0083",
+    "official_name": "Fator IX (simulado)",
+    "synonyms": "Fator IX",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0084",
+    "official_name": "Grupo Sanguíneo ABO e Rh (simulado)",
+    "synonyms": "Grupo Sanguíneo ABO e Rh",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0085",
+    "official_name": "Coombs Direto (simulado)",
+    "synonyms": "Coombs Direto",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0086",
+    "official_name": "Coombs Indireto (simulado)",
+    "synonyms": "Coombs Indireto",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0087",
+    "official_name": "Reticulócitos (simulado)",
+    "synonyms": "Reticulócitos",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0088",
+    "official_name": "Haptoglobina (simulado)",
+    "synonyms": "Haptoglobina",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0089",
+    "official_name": "Eletroforese de Hemoglobina (simulado)",
+    "synonyms": "Eletroforese de Hemoglobina",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0090",
+    "official_name": "G6PD (simulado)",
+    "synonyms": "G6PD",
+    "category": "Hematologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0091",
+    "official_name": "Beta-HCG Quantitativo (simulado)",
+    "synonyms": "Beta-HCG Quantitativo",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0092",
+    "official_name": "PSA Total (simulado)",
+    "synonyms": "PSA Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0093",
+    "official_name": "PSA Livre (simulado)",
+    "synonyms": "PSA Livre",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0094",
+    "official_name": "Alfa Fetoproteína (simulado)",
+    "synonyms": "Alfa Fetoproteína",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0095",
+    "official_name": "CEA (simulado)",
+    "synonyms": "CEA",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0096",
+    "official_name": "CA 125 (simulado)",
+    "synonyms": "CA 125",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0097",
+    "official_name": "CA 19-9 (simulado)",
+    "synonyms": "CA 19-9",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0098",
+    "official_name": "CA 15-3 (simulado)",
+    "synonyms": "CA 15-3",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0099",
+    "official_name": "IgE Total (simulado)",
+    "synonyms": "IgE Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0100",
+    "official_name": "IgG Total (simulado)",
+    "synonyms": "IgG Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0101",
+    "official_name": "IgA Total (simulado)",
+    "synonyms": "IgA Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0102",
+    "official_name": "IgM Total (simulado)",
+    "synonyms": "IgM Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0103",
+    "official_name": "Complemento C3 (simulado)",
+    "synonyms": "Complemento C3",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0104",
+    "official_name": "Complemento C4 (simulado)",
+    "synonyms": "Complemento C4",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0105",
+    "official_name": "Fator Reumatoide (simulado)",
+    "synonyms": "Fator Reumatoide",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0106",
+    "official_name": "Anticorpos Anti-CCP (simulado)",
+    "synonyms": "Anticorpos Anti-CCP",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0107",
+    "official_name": "FAN (simulado)",
+    "synonyms": "FAN",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0108",
+    "official_name": "Anti-DNA Dupla Hélice (simulado)",
+    "synonyms": "Anti-DNA Dupla Hélice",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0109",
+    "official_name": "Anti-Ro (simulado)",
+    "synonyms": "Anti-Ro",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0110",
+    "official_name": "Anti-La (simulado)",
+    "synonyms": "Anti-La",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0111",
+    "official_name": "Anti-Sm (simulado)",
+    "synonyms": "Anti-Sm",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0112",
+    "official_name": "Anti-RNP (simulado)",
+    "synonyms": "Anti-RNP",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0113",
+    "official_name": "VDRL (simulado)",
+    "synonyms": "VDRL",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0114",
+    "official_name": "HIV Antígeno/Anticorpo (simulado)",
+    "synonyms": "HIV Antígeno/Anticorpo",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0115",
+    "official_name": "HBsAg (simulado)",
+    "synonyms": "HBsAg",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0116",
+    "official_name": "Anti-HBs (simulado)",
+    "synonyms": "Anti-HBs",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0117",
+    "official_name": "Anti-HBc Total (simulado)",
+    "synonyms": "Anti-HBc Total",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0118",
+    "official_name": "Anti-HCV (simulado)",
+    "synonyms": "Anti-HCV",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0119",
+    "official_name": "Dengue IgM (simulado)",
+    "synonyms": "Dengue IgM",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0120",
+    "official_name": "Dengue IgG (simulado)",
+    "synonyms": "Dengue IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0121",
+    "official_name": "COVID-19 IgG (simulado)",
+    "synonyms": "COVID-19 IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0122",
+    "official_name": "Urocultura (simulado)",
+    "synonyms": "Urocultura",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0123",
+    "official_name": "EAS Urina Tipo I (simulado)",
+    "synonyms": "EAS Urina Tipo I",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0124",
+    "official_name": "Proteinúria de 24 Horas (simulado)",
+    "synonyms": "Proteinúria de 24 Horas",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0125",
+    "official_name": "Microalbuminúria (simulado)",
+    "synonyms": "Microalbuminúria",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0126",
+    "official_name": "Clearance de Creatinina (simulado)",
+    "synonyms": "Clearance de Creatinina",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0127",
+    "official_name": "Parasitológico de Fezes (simulado)",
+    "synonyms": "Parasitológico de Fezes",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0128",
+    "official_name": "Pesquisa de Sangue Oculto nas Fezes (simulado)",
+    "synonyms": "Pesquisa de Sangue Oculto nas Fezes",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0129",
+    "official_name": "Coprocultura (simulado)",
+    "synonyms": "Coprocultura",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0130",
+    "official_name": "Calprotectina Fecal (simulado)",
+    "synonyms": "Calprotectina Fecal",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0131",
+    "official_name": "Lactato (simulado)",
+    "synonyms": "Lactato",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0132",
+    "official_name": "Gasometria Arterial (simulado)",
+    "synonyms": "Gasometria Arterial",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0133",
+    "official_name": "Osmolalidade Sérica (simulado)",
+    "synonyms": "Osmolalidade Sérica",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0134",
+    "official_name": "Osmolalidade Urinária (simulado)",
+    "synonyms": "Osmolalidade Urinária",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0135",
+    "official_name": "Procalcitonina (simulado)",
+    "synonyms": "Procalcitonina",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0136",
+    "official_name": "Aldosterona (simulado)",
+    "synonyms": "Aldosterona",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0137",
+    "official_name": "Renina (simulado)",
+    "synonyms": "Renina",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0138",
+    "official_name": "Metanefrinas Plasmáticas (simulado)",
+    "synonyms": "Metanefrinas Plasmáticas",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0139",
+    "official_name": "Ceruloplasmina (simulado)",
+    "synonyms": "Ceruloplasmina",
+    "category": "Endocrinologia",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0140",
+    "official_name": "Alfa-1 Antitripsina (simulado)",
+    "synonyms": "Alfa-1 Antitripsina",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0141",
+    "official_name": "Anticorpos Antitransglutaminase IgA (simulado)",
+    "synonyms": "Anticorpos Antitransglutaminase IgA",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0142",
+    "official_name": "Anticorpos Antigliadina IgG (simulado)",
+    "synonyms": "Anticorpos Antigliadina IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0143",
+    "official_name": "Toxoplasmose IgM (simulado)",
+    "synonyms": "Toxoplasmose IgM",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0144",
+    "official_name": "Toxoplasmose IgG (simulado)",
+    "synonyms": "Toxoplasmose IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0145",
+    "official_name": "Rubéola IgM (simulado)",
+    "synonyms": "Rubéola IgM",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0146",
+    "official_name": "Rubéola IgG (simulado)",
+    "synonyms": "Rubéola IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0147",
+    "official_name": "CMV IgM (simulado)",
+    "synonyms": "CMV IgM",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0148",
+    "official_name": "CMV IgG (simulado)",
+    "synonyms": "CMV IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0149",
+    "official_name": "Herpes Simples IgM (simulado)",
+    "synonyms": "Herpes Simples IgM",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  },
+  {
+    "tuss_code": "MOCK-0150",
+    "official_name": "Herpes Simples IgG (simulado)",
+    "synonyms": "Herpes Simples IgG",
+    "category": "Análises laboratoriais",
+    "fasting_hours": 0,
+    "preparation_instructions": "Preparo simulado; confirme as orientações com a unidade.",
+    "turnaround_days": 1
+  }
+]

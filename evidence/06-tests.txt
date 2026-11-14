@@ -1,0 +1,33 @@
+....................................................................     [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.9-final-0 ________________
+
+Name                                  Stmts   Miss  Cover
+---------------------------------------------------------
+runtime/__init__.py                       0      0   100%
+runtime/cli.py                          133     30    77%
+security/__init__.py                      2      0   100%
+security/adk_callbacks.py               109     11    90%
+security/pii_guardrail.py                93     15    84%
+services/__init__.py                      0      0   100%
+services/mcp_ocr/__init__.py              0      0   100%
+services/mcp_ocr/ocr_engine.py           53      8    85%
+services/mcp_ocr/server.py               31      4    87%
+services/mcp_rag/__init__.py              0      0   100%
+services/mcp_rag/hybrid_search.py        58      5    91%
+services/mcp_rag/seeder.py               22      1    95%
+services/mcp_rag/server.py               36      5    86%
+services/scheduling_api/__init__.py       0      0   100%
+services/scheduling_api/database.py       6      3    50%
+services/scheduling_api/main.py          43      3    93%
+services/scheduling_api/schemas.py       58      1    98%
+transpiler/__init__.py                    0      0   100%
+transpiler/compiler.py                   35      3    91%
+transpiler/schema.py                    117      9    92%
+---------------------------------------------------------
+TOTAL                                   796     98    88%
+68 passed in 3.07s
+--- RUFF ---
+All checks passed!
+--- COMPOSE CONFIG ---
+compose config OK

@@ -1,0 +1,128 @@
+"""Generated clinical pipeline. Catalog identifiers and preparation are fictional."""
+
+from __future__ import annotations
+
+import json
+import re
+from urllib.parse import urlsplit
+
+import httpx
+
+from pydantic import BaseModel, Field, ValidationError
+from google.adk.agents import LlmAgent, SequentialAgent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, SseConnectionParams
+from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import OpenAPIToolset
+from security.adk_callbacks import after_tool_callback, before_model_callback, before_tool_callback
+
+
+class AgentPipelineExecutionError(Exception):
+    """An agent failed to produce a valid state or no exams were resolved."""
+
+
+{% for name, schema in spec.schemas.items() %}
+class {{ name }}(BaseModel):
+{% for field_name, field in schema.fields.items() %}
+    {{ field_name }}: {{ field.type }} = Field(description={{ field.description | pyrepr }})
+{% endfor %}
+
+{% endfor %}
+{% for name in spec.schemas %}
+{{ name }}.model_rebuild()
+{% endfor %}
+
+OUTPUT_SCHEMAS = {
+{% for agent in spec.orchestration.agents %}
+    {{ agent.output_key | pyrepr }}: {{ agent.output_schema_ref }},
+{% endfor %}
+}
+
+
+def _validate_output(key):
+    def callback(callback_context):
+        value = callback_context.state.get(key)
+        try:
+            schema = OUTPUT_SCHEMAS[key]
+            if isinstance(value, str):
+                # LLMs routinely wrap JSON in markdown fences; strip that noise only.
+                value = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", value.strip())
+                value = json.loads(value)
+            if (isinstance(value, dict) and len(value) == 1
+                    and next(iter(value)).endswith("_response")
+                    and isinstance(value[next(iter(value))], dict)):
+                # OpenAPIToolset advertises the payload under an "<operation>_response" wrapper.
+                value = value[next(iter(value))]
+            result = schema.model_validate_json(value) if isinstance(value, str) else schema.model_validate(value)
+        except (ValidationError, ValueError, TypeError):
+            raise AgentPipelineExecutionError(f"Invalid output at {key}; no registration confirmed") from None
+        output = result.model_dump(mode="json")
+{% set first = spec.orchestration.agents[0] %}
+{% if 'extract_and_anonymize_medical_order' in (first.mcp_bindings | map(attribute='allowed_tools') | sum(start=[])) and 'exams' in spec.schemas[first.output_schema_ref].fields %}
+        if key == {{ first.output_key | pyrepr }}:
+            evidence = callback_context.state.get('_ocr_verified')
+            if (not evidence or not output.get('exams') or
+                    output.get('sanitized_text') != evidence['sanitized_text'] or
+                    output.get('pii_entities_masked') != evidence['pii_entities_masked'] or
+                    any(item['raw_name'].casefold() not in evidence['sanitized_text'].casefold()
+                        for item in output['exams'])):
+                raise AgentPipelineExecutionError("OCR output lacks verified tool evidence")
+{% endif %}
+{% if spec.orchestration.agents | length > 1 %}
+{% set lookup = spec.orchestration.agents[-2] %}
+{% if 'search_exam_catalog_hybrid' in (lookup.mcp_bindings | map(attribute='allowed_tools') | sum(start=[])) and 'matched_exams' in spec.schemas[lookup.output_schema_ref].fields %}
+        if key == {{ lookup.output_key | pyrepr }}:
+            if (not output.get('matched_exams') or
+                    output != callback_context.state.get('_rag_verified')):
+                raise AgentPipelineExecutionError("RAG output lacks verified tool evidence")
+{% endif %}
+{% endif %}
+{% set booking = spec.orchestration.agents[-1] %}
+{% if 'create_exam_appointment' in (booking.openapi_bindings | map(attribute='allowed_operations') | sum(start=[])) and 'scheduled_exams' in spec.schemas[booking.output_schema_ref].fields %}
+        if key == {{ booking.output_key | pyrepr }}:
+            if output != callback_context.state.get('_booking_verified'):
+                raise AgentPipelineExecutionError("Booking output lacks verified API response")
+{% endif %}
+        callback_context.state[key] = output
+        return None
+
+    return callback
+
+
+def build_pipeline():
+    """Create toolsets at runtime, after preflight (never during import/transpilation)."""
+    server_params = {
+{% for server in spec.mcp_servers %}
+        {{ server.id | pyrepr }}: SseConnectionParams(url={{ server.url | pyrepr }}, timeout={{ server.timeout }}),
+{% endfor %}
+    }
+    service_specs = {}
+{% for service in spec.openapi_services %}
+    response = httpx.get({{ service.spec_url | pyrepr }}, timeout=10)
+    response.raise_for_status()
+    endpoint = urlsplit({{ service.spec_url | pyrepr }})
+    service_spec = response.json()
+    # FastAPI serves a relative "servers" URL; the toolset needs an absolute origin.
+    service_spec.setdefault("servers", [{"url": f"{endpoint.scheme}://{endpoint.netloc}"}])
+    service_specs[{{ service.id | pyrepr }}] = service_spec
+{% endfor %}
+    agents = []
+{% for agent in spec.orchestration.agents %}
+    agents.append(LlmAgent(
+        name={{ agent.name | pyrepr }},
+        model={{ agent.model | pyrepr }},
+        instruction={{ agent.instruction | pyrepr }},
+        output_key={{ agent.output_key | pyrepr }},
+        tools=[
+{% for binding in agent.mcp_bindings %}
+            MCPToolset(connection_params=server_params[{{ binding.server_id | pyrepr }}], tool_filter={{ binding.allowed_tools | pyrepr }}),
+{% endfor %}
+{% for binding in agent.openapi_bindings %}
+            OpenAPIToolset(spec_dict=service_specs[{{ binding.service_id | pyrepr }}], tool_filter={{ binding.allowed_operations | pyrepr }}, allow_private_network_access=True),
+{% endfor %}
+        ],
+        before_model_callback=before_model_callback,
+        before_tool_callback=before_tool_callback,
+        after_tool_callback=after_tool_callback,
+        after_agent_callback=_validate_output({{ agent.output_key | pyrepr }}),
+    ))
+{% endfor %}
+    return SequentialAgent(name={{ spec.orchestration.name | pyrepr }}, sub_agents=agents)

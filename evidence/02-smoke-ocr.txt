@@ -1,0 +1,14 @@
+CLINICA FICTICIA - pedido para testes
+[REDACTED_PERSON]: [REDACTED_PERSON]
+CPF: [REDACTED_CPF] RG: [REDACTED_RG]
+Tel: [REDACTED_PHONE]
+E-mail: [REDACTED_EMAIL]
+Solicito:
+1. Hemograma Completo
+2. Glicemia de Jejum
+3. Hormonio Tireoestimulante (TSH)
+4. Colesterol Total e Fracoes (Lipidograma)
++ Vitamina D (25-Hidroxi) e Ferritina Sérica
+Dra. [REDACTED_PERSON] - [REDACTED_CRM]
+DADOSINVENTADOS-SEMVALIDADEMEDICA
+{'total_redacted': 8, 'entities_found': ['PERSON', 'CPF', 'RG', 'PHONE_NUMBER', 'EMAIL_ADDRESS', 'CRM']}
