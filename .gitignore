@@ -14,3 +14,4 @@ dist/
 .pi/
 .playwright-cli/
 HANDOFF.md
+evidence/

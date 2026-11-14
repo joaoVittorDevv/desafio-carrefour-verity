@@ -27,11 +27,66 @@ class InfrastructureUnavailableError(Exception):
 
 
 class AgentPipelineExecutionError(Exception):
-    pass
+    """Pipeline failure labeled by the observed stage; internal text is never user-facing."""
+
+    def __init__(self, message: str, stage: str | None = None, after_api: bool = False):
+        super().__init__(message)
+        self.stage = stage
+        self.after_api = after_api
+
+
+STAGE_PREPARATION = "preparação dos serviços do agente"
+STAGE_EXAM_EXTRACTION = "extração dos exames"
+STAGE_CATALOG_LOOKUP = "consulta ao catálogo"
+STAGE_REGISTRATION = "registro da solicitação"
+
+# Static markers of internal validation messages, used only to label the failing
+# stage (never printed); unknown failures fall back to the stage seen in events.
+_FAILURE_MARKERS = (
+    ("Invalid output at extracted_exams", STAGE_EXAM_EXTRACTION, False),
+    ("OCR output lacks", STAGE_EXAM_EXTRACTION, False),
+    ("OCR exam lines differ", STAGE_EXAM_EXTRACTION, False),
+    ("Invalid input for rag_lookup_agent", STAGE_CATALOG_LOOKUP, False),
+    ("Invalid output at resolved_exams", STAGE_CATALOG_LOOKUP, False),
+    ("RAG output lacks", STAGE_CATALOG_LOOKUP, False),
+    ("Invalid input for scheduling_agent", STAGE_REGISTRATION, True),
+    ("Invalid output at booking_result", STAGE_REGISTRATION, True),
+    ("Booking output lacks", STAGE_REGISTRATION, True),
+    ("Registration response inconsistent", STAGE_REGISTRATION, True),
+)
+
+_AGENT_STAGES = {
+    "ocr_intake_agent": STAGE_EXAM_EXTRACTION,
+    "rag_lookup_agent": STAGE_CATALOG_LOOKUP,
+    "scheduling_agent": STAGE_REGISTRATION,
+}
+
+
+def _labeled_failure(exc: Exception, current_agent: str) -> AgentPipelineExecutionError:
+    """Classify a pipeline failure by stage without carrying the exception text."""
+    for marker, stage, after_api in _FAILURE_MARKERS:
+        if marker in str(exc):
+            return AgentPipelineExecutionError("pipeline stage failed", stage=stage, after_api=after_api)
+    stage = _AGENT_STAGES.get(current_agent)
+    return AgentPipelineExecutionError(
+        "pipeline stage failed", stage=stage, after_api=stage == STAGE_REGISTRATION)
+
+
+def _preserves_contract_exit(exc: Exception) -> bool:
+    """Privacy violations and incomplete orders keep their dedicated exit codes."""
+    from security.adk_callbacks import IncompleteOrderError
+
+    try:
+        from security import GuardrailViolation
+    except ImportError:
+        GuardrailViolation = None
+    preserved = (IncompleteOrderError, GuardrailViolation) if GuardrailViolation else (IncompleteOrderError,)
+    return isinstance(exc, preserved)
 
 
 def _fail(code: int, message: str):
-    console.print(f"[red]{message}[/red]")
+    # Plain style, not markup: user-provided detail may contain brackets (e.g. pydantic [type=...]).
+    console.print(message, style="red")
     raise typer.Exit(code)
 
 
@@ -110,12 +165,15 @@ async def execute_pipeline(module_name: str, image: Path):
     from google.adk.sessions import InMemorySessionService
     from google.genai import types
 
-    module = importlib.import_module(module_name)
-    agent = module.build_pipeline()
-    sessions = InMemorySessionService()
-    await sessions.create_session(app_name="clinical_exam_scheduler", user_id="cli", session_id="run",
-                                  state={"expected_image_path": str(image)})
-    runner = Runner(agent=agent, app_name="clinical_exam_scheduler", session_service=sessions)
+    try:
+        module = importlib.import_module(module_name)
+        agent = module.build_pipeline()
+        sessions = InMemorySessionService()
+        await sessions.create_session(app_name="clinical_exam_scheduler", user_id="cli", session_id="run",
+                                      state={"expected_image_path": str(image)})
+        runner = Runner(agent=agent, app_name="clinical_exam_scheduler", session_service=sessions)
+    except Exception:
+        raise AgentPipelineExecutionError("agent preparation failed", stage=STAGE_PREPARATION) from None
     message = types.Content(role="user", parts=[types.Part(text=f"Process file_path: {image}")])
     stages = {
         "ocr_intake_agent": "Extraindo exames e protegendo dados pessoais",
@@ -125,16 +183,24 @@ async def execute_pipeline(module_name: str, image: Path):
     current = "ocr_intake_agent"
     console.print(f"Iniciando: {stages[current]}...")
     with console.status(stages[current], spinner="dots") as status:
-        async for event in runner.run_async(user_id="cli", session_id="run", new_message=message):
-            if event.author in stages and event.author != current:
-                console.print(f"[green]✓[/green] {stages[current]}")
-                current = event.author
-                console.print(f"Iniciando: {stages[current]}...")
-                status.update(stages[current])
+        try:
+            async for event in runner.run_async(user_id="cli", session_id="run", new_message=message):
+                if event.author in stages and event.author != current:
+                    console.print(f"[green]✓[/green] {stages[current]}")
+                    current = event.author
+                    console.print(f"Iniciando: {stages[current]}...")
+                    status.update(stages[current])
+        except Exception as exc:
+            if _preserves_contract_exit(exc):
+                raise
+            raise _labeled_failure(exc, current) from None
         console.print("Conferindo o resultado do registro...")
         status.update("Conferindo o resultado do registro")
         session = await sessions.get_session(app_name="clinical_exam_scheduler", user_id="cli", session_id="run")
-        booking = validate_confirmation(session.state)
+        try:
+            booking = validate_confirmation(session.state)
+        except AgentPipelineExecutionError as exc:
+            raise _labeled_failure(exc, current) from None
     console.print(f"[green]✓[/green] {stages[current]}")
     return booking
 
@@ -143,8 +209,10 @@ async def execute_pipeline(module_name: str, image: Path):
 def transpile(spec: Path = typer.Option(DEFAULT_SPEC), output: Path = typer.Option(Path("runtime/generated/clinical_exam_scheduler_agent.py"))):
     try:
         compile_to_file(spec, output)
-    except SpecTranspilationError:
-        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
+    except SpecTranspilationError as exc:
+        _fail(10, f"Especificação inválida: {exc}")
+    except OSError as exc:
+        _fail(10, f"Não foi possível gravar a saída em {output}; verifique o caminho e as permissões. ({exc})")
     console.print(f"Código do agente gerado em {output}")
 
 
@@ -152,8 +220,8 @@ def transpile(spec: Path = typer.Option(DEFAULT_SPEC), output: Path = typer.Opti
 def preflight(spec: Path = typer.Option(DEFAULT_SPEC)):
     try:
         check_preflight(load_spec(spec))
-    except SpecTranspilationError:
-        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
+    except SpecTranspilationError as exc:
+        _fail(10, f"Especificação inválida: {exc}")
     except InfrastructureUnavailableError as exc:
         _fail(30, str(exc))
     console.print("Verificação dos serviços concluída.")
@@ -173,14 +241,26 @@ def run(
             check_preflight(pipeline_spec)
         console.print("[green]✓[/green] Imagem e serviços disponíveis")
         booking = asyncio.run(execute_pipeline(agent_module, image))
-    except SpecTranspilationError:
-        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
+    except SpecTranspilationError as exc:
+        _fail(10, f"Especificação inválida: {exc}")
     except InputImageError as exc:
         _fail(20, str(exc))
     except InfrastructureUnavailableError as exc:
         _fail(30, str(exc))
-    except AgentPipelineExecutionError:
-        _fail(40, "Não foi possível confirmar a solicitação. Se a API chegou a ser chamada, consulte-a antes de repetir.")
+    except AgentPipelineExecutionError as exc:
+        if exc.stage == STAGE_PREPARATION:
+            _fail(40, "Falha na preparação dos serviços do agente; a solicitação não foi registrada. "
+                      "Verifique os serviços e tente novamente.")
+        if exc.stage == STAGE_EXAM_EXTRACTION:
+            _fail(40, "Falha na extração dos exames da imagem; a solicitação não foi registrada.")
+        if exc.stage == STAGE_CATALOG_LOOKUP:
+            _fail(40, "Falha na consulta ao catálogo de exames; a solicitação não foi registrada.")
+        if exc.stage == STAGE_REGISTRATION or exc.after_api:
+            # The registration call may already be persisted; never claim otherwise.
+            _fail(40, "Falha no registro da solicitação. Não é possível confirmar se a solicitação foi gravada; "
+                      "consulte a API antes de repetir.")
+        _fail(40, "Não foi possível confirmar a solicitação. "
+                  "Se a API chegou a ser chamada, consulte-a antes de repetir.")
     except Exception as exc:
         from security.adk_callbacks import IncompleteOrderError
 
