@@ -2,9 +2,11 @@
 
 import asyncio
 import sys
+from io import StringIO
 from types import SimpleNamespace
 
 import pytest
+from rich.console import Console
 
 from runtime.cli import AgentPipelineExecutionError, execute_pipeline
 from security import GuardrailViolation
@@ -51,6 +53,8 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
         }
 
     state = {}
+    output = StringIO()
+    monkeypatch.setattr(cli, "console", Console(file=output, force_terminal=False))
 
     class FakeSessions:
         async def create_session(self, **_kwargs):
@@ -65,12 +69,16 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
 
         async def run_async(self, **_kwargs):
             extracted = ocr(input_path)
+            yield SimpleNamespace(author="ocr_intake_agent")
             resolved = rag(extracted["exams"])
             if not resolved["matched_exams"]:
                 raise AgentPipelineExecutionError("No exams resolved")
             state["resolved_exams"] = resolved
+            yield SimpleNamespace(author="rag_lookup_agent")
             state["booking_result"] = api(resolved)
-            yield {"mock": True}
+            if mode["value"] == "invalid_confirmation":
+                state["booking_result"]["status"] = "CONFIRMED"
+            yield SimpleNamespace(author="scheduling_agent")
 
     monkeypatch.setattr(cli.importlib, "import_module", lambda _name: SimpleNamespace(build_pipeline=lambda: object()))
     monkeypatch.setitem(sys.modules, "google", SimpleNamespace())
@@ -86,13 +94,31 @@ def test_partial_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     assert result["scheduled_exams"] == [accepted]
     assert result["unmatched_terms"] == ["ilegível"]
     assert calls == {"ocr": 1, "rag": 1, "api": 1}
+    text = output.getvalue()
+    for step in ("Extraindo exames e protegendo dados pessoais", "Conferindo exames no catálogo fictício",
+                 "Registrando a solicitação fictícia"):
+        assert text.count(f"✓ {step}") == 1
+    assert text.index("✓ Extraindo") < text.index("✓ Conferindo") < text.index("✓ Registrando")
+    assert text.index("Iniciando: Conferindo") < text.index("✓ Conferindo")
+    assert "Conferindo o resultado do registro" in text
+    assert "Hemograma" not in text and "[REDACTED_PERSON]" not in text
 
     mode["value"] = "unmatched"
+    output.seek(0)
+    output.truncate()
     with pytest.raises(AgentPipelineExecutionError):
         asyncio.run(execute_pipeline("mocked.agent", input_path))
+    assert "✓ Registrando" not in output.getvalue()
     assert calls["api"] == 1
+
+    mode["value"] = "invalid_confirmation"
+    output.seek(0)
+    output.truncate()
+    with pytest.raises(AgentPipelineExecutionError):
+        asyncio.run(execute_pipeline("mocked.agent", input_path))
+    assert "✓ Registrando" not in output.getvalue()
 
     mode["value"] = "unsafe"
     with pytest.raises(GuardrailViolation):
         asyncio.run(execute_pipeline("mocked.agent", input_path))
-    assert calls["rag"] == 2 and calls["api"] == 1
+    assert calls["rag"] == 3 and calls["api"] == 2

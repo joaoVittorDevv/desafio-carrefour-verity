@@ -43,7 +43,7 @@ def _health_url(url: str) -> str:
 def check_preflight(spec):
     failed = []
     if not os.environ.get("GEMINI_API_KEY"):
-        failed.append("GEMINI_API_KEY missing")
+        failed.append("GEMINI_API_KEY ausente")
     for label, url in [(server.id, server.url) for server in spec.mcp_servers] + [
         (service.id, service.spec_url) for service in spec.openapi_services
     ]:
@@ -52,16 +52,16 @@ def check_preflight(spec):
                 if response.status != 200:
                     raise OSError("unhealthy")
         except (OSError, ValueError):
-            failed.append(f"{label} unavailable")
+            failed.append(f"{label} indisponível")
     if failed:
-        raise InfrastructureUnavailableError("; ".join(failed) + "; try docker compose up -d")
+        raise InfrastructureUnavailableError("; ".join(failed) + "; tente docker compose up -d")
 
 
 def check_image(image: Path, volume: Path):
     expected = volume.resolve()
     actual = image.resolve()
     if actual == expected or expected not in actual.parents or image.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
-        raise InputImageError(f"Image must be within {volume} (.png, .jpg, .jpeg, .webp)")
+        raise InputImageError(f"A imagem deve estar em {volume} (.png, .jpg, .jpeg, .webp)")
     try:
         with image.open("rb") as stream:
             header = stream.read(16)
@@ -69,11 +69,11 @@ def check_image(image: Path, volume: Path):
                  header.startswith(b"\xff\xd8\xff") or
                  header.startswith(b"RIFF") and header[8:12] == b"WEBP")
         if not valid or image.stat().st_size <= 16:
-            raise InputImageError("Image empty or invalid header; no request registered")
+            raise InputImageError("Imagem vazia ou com cabeçalho inválido; solicitação não registrada")
         with Image.open(image) as parsed:
             parsed.verify()
     except (OSError, UnidentifiedImageError, ValueError) as exc:
-        raise InputImageError(f"Image invalid or unavailable in {volume}; no request registered") from exc
+        raise InputImageError(f"Imagem inválida ou indisponível em {volume}; solicitação não registrada") from exc
 
 
 def validate_confirmation(state):
@@ -113,30 +113,46 @@ async def execute_pipeline(module_name: str, image: Path):
                                   state={"expected_image_path": str(image)})
     runner = Runner(agent=agent, app_name="clinical_exam_scheduler", session_service=sessions)
     message = types.Content(role="user", parts=[types.Part(text=f"Process file_path: {image}")])
-    async for _ in runner.run_async(user_id="cli", session_id="run", new_message=message):
-        pass
-    session = await sessions.get_session(app_name="clinical_exam_scheduler", user_id="cli", session_id="run")
-    return validate_confirmation(session.state)
+    stages = {
+        "ocr_intake_agent": "Extraindo exames e protegendo dados pessoais",
+        "rag_lookup_agent": "Conferindo exames no catálogo fictício",
+        "scheduling_agent": "Registrando a solicitação fictícia",
+    }
+    current = "ocr_intake_agent"
+    console.print(f"Iniciando: {stages[current]}...")
+    with console.status(stages[current], spinner="dots") as status:
+        async for event in runner.run_async(user_id="cli", session_id="run", new_message=message):
+            if event.author in stages and event.author != current:
+                console.print(f"[green]✓[/green] {stages[current]}")
+                current = event.author
+                console.print(f"Iniciando: {stages[current]}...")
+                status.update(stages[current])
+        console.print("Conferindo o resultado do registro...")
+        status.update("Conferindo o resultado do registro")
+        session = await sessions.get_session(app_name="clinical_exam_scheduler", user_id="cli", session_id="run")
+        booking = validate_confirmation(session.state)
+    console.print(f"[green]✓[/green] {stages[current]}")
+    return booking
 
 
 @app.command()
 def transpile(spec: Path = typer.Option(DEFAULT_SPEC), output: Path = typer.Option(Path("runtime/generated/clinical_exam_scheduler_agent.py"))):
     try:
         compile_to_file(spec, output)
-    except SpecTranspilationError as exc:
-        _fail(10, f"Invalid specification: {exc}")
-    console.print(f"Generated {output}")
+    except SpecTranspilationError:
+        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
+    console.print(f"Código do agente gerado em {output}")
 
 
 @app.command()
 def preflight(spec: Path = typer.Option(DEFAULT_SPEC)):
     try:
         check_preflight(load_spec(spec))
-    except SpecTranspilationError as exc:
-        _fail(10, f"Invalid specification: {exc}")
+    except SpecTranspilationError:
+        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
     except InfrastructureUnavailableError as exc:
         _fail(30, str(exc))
-    console.print("Preflight OK")
+    console.print("Verificação dos serviços concluída.")
 
 
 @app.command()
@@ -147,34 +163,35 @@ def run(
 ):
     try:
         pipeline_spec = load_spec(spec)
-        check_image(image, Path(pipeline_spec.orchestration.input_volume_path))
-        check_preflight(pipeline_spec)
+        console.print("Validando imagem e serviços...")
+        with console.status("Validando imagem e serviços", spinner="dots"):
+            check_image(image, Path(pipeline_spec.orchestration.input_volume_path))
+            check_preflight(pipeline_spec)
+        console.print("[green]✓[/green] Imagem e serviços disponíveis")
         booking = asyncio.run(execute_pipeline(agent_module, image))
-    except SpecTranspilationError as exc:
-        _fail(10, f"Invalid specification: {exc}")
+    except SpecTranspilationError:
+        _fail(10, "Especificação inválida; confira o arquivo JSON e seus campos.")
     except InputImageError as exc:
         _fail(20, str(exc))
     except InfrastructureUnavailableError as exc:
         _fail(30, str(exc))
-    except AgentPipelineExecutionError as exc:
-        _fail(40, f"Agent pipeline failed; registration not confirmed. Check OCR/RAG and SSE services. Detail: {exc}")
+    except AgentPipelineExecutionError:
+        _fail(40, "Não foi possível confirmar a solicitação. Se a API chegou a ser chamada, consulte-a antes de repetir.")
     except Exception as exc:
         try:
             from security import GuardrailViolation
         except ImportError:
             GuardrailViolation = ()
         if isinstance(exc, GuardrailViolation):
-            _fail(50, "Privacy could not be guaranteed; nothing registered. Retry with a clearer image.")
-        if type(exc).__name__ == "AgentPipelineExecutionError":
-            # The transpiled module defines its own class; message carries stage identifiers only.
-            _fail(40, f"Agent pipeline failed; registration not confirmed. Check OCR/RAG and SSE services. Detail: {exc}")
-        _fail(40, "Agent pipeline failed; registration not confirmed. Check OCR/RAG and SSE services.")
-    console.print(f"Protocol: {booking['protocol_id']} ({booking['status']}); registered request at {booking['scheduled_at']} (not a collection reservation).")
+            _fail(50, "Não foi possível garantir a privacidade. Consulte a API antes de repetir a operação.")
+        _fail(40, "Não foi possível confirmar a solicitação. Se a API chegou a ser chamada, consulte-a antes de repetir.")
+    situation = {"CONFIRMED": "confirmada", "PARTIAL": "parcial"}[booking["status"]]
+    console.print(f"Protocolo: {booking['protocol_id']} (solicitação {situation}); registrada em {booking['scheduled_at']} (não é uma reserva de horário).")
     for item in booking["scheduled_exams"]:
-        console.print(f"Registered: {item['official_name']} ({item['tuss_code']} fictitious)")
+        console.print(f"Registrado: {item['official_name']} ({item['tuss_code']} fictício)")
     for term in booking["unmatched_terms"]:
-        console.print(f"[yellow]Not registered: {term}[/yellow]")
-    console.print(f"Simulated preparation: {booking['preparation_summary']}")
+        console.print(f"[yellow]Não registrado: {term}[/yellow]")
+    console.print(f"Preparo simulado: {booking['preparation_summary']}")
 
 
 if __name__ == "__main__":

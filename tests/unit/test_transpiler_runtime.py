@@ -92,6 +92,32 @@ def test_cli_exit_codes_mock_only(monkeypatch):
     monkeypatch.setattr(cli, "execute_pipeline", failed)
     result = CliRunner().invoke(app, ["run", "--image", "/app/inputs/test.png"])
     assert result.exit_code == 40
+    assert "Não foi possível confirmar" in result.stdout
+    assert "solicitação registrada" not in result.stdout
+    assert "sensitive value" not in result.stdout
+
+
+def test_cli_success_feedback_is_in_portuguese(monkeypatch):
+    import runtime.cli as cli
+
+    monkeypatch.setattr(cli, "check_image", lambda *a: None)
+    monkeypatch.setattr(cli, "check_preflight", lambda *a: None)
+
+    async def completed(*_args):
+        return {"protocol_id": "LAB-TEST", "status": "PARTIAL",
+                "scheduled_at": "2026-11-13T14:02:41Z",
+                "scheduled_exams": [{"official_name": "Hemograma (simulado)",
+                                     "tuss_code": "MOCK-0001"}],
+                "unmatched_terms": ["exame desconhecido"],
+                "preparation_summary": "Preparo simulado"}
+
+    monkeypatch.setattr(cli, "execute_pipeline", completed)
+    result = CliRunner().invoke(app, ["run", "--image", "/app/inputs/test.png"])
+    assert result.exit_code == 0
+    assert "Validando imagem e serviços" in result.stdout
+    assert "Protocolo: LAB-TEST (solicitação parcial)" in result.stdout
+    assert "Não registrado: exame desconhecido" in result.stdout
+    assert "Registered:" not in result.stdout and "Protocol:" not in result.stdout
 
 
 def test_cli_invalid_spec_exit_10(tmp_path):

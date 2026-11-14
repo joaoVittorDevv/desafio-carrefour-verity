@@ -629,7 +629,7 @@ docker compose ps
 docker compose run --rm agent-cli python -m runtime.cli preflight
 ```
 * **Resultado esperado:**
-  * `Preflight OK` e exit 0 quando a chave está presente e os três serviços respondem `/health` (o healthcheck do RAG exige pelo menos 125 exames). A contagem exata de 150 foi verificada separadamente no Postgres e em `evidence/02-rag-seed-log.txt`; o preflight não a imprime.
+  * `Verificação dos serviços concluída.` e exit 0 quando a chave está presente e os três serviços respondem `/health` (o healthcheck do RAG exige pelo menos 125 exames). O arquivo `evidence/03-preflight.txt` é uma captura anterior à tradução da CLI e contém `Preflight OK`; não é a saída textual atual. A contagem de 150 foi verificada separadamente no Postgres e em `evidence/02-rag-seed-log.txt`.
 
 #### Etapa 3: Execução do Transpilador ($\text{JSON} \rightarrow \text{Python ADK}$)
 ```bash
@@ -647,7 +647,7 @@ docker compose run --rm agent-cli python -m runtime.cli run \
   --agent-module runtime.generated.clinical_exam_scheduler_agent \
   --image /app/inputs/pedido_medico_teste.png
 ```
-* **Saída Visual Esperada no Terminal (Rich):**
+* **Saída Visual Esperada no Terminal (Rich):** o `run` mostra feedback em português durante a validação de imagem/serviços, extração e proteção de dados, busca RAG, registro e conferência do resultado. Usa indicador animado em TTY e não mostra texto extraído, argumentos nem respostas de ferramentas. Só informa conclusão do registro após validar o estado final. As capturas `evidence/05-run-full.txt` são anteriores a essa melhoria de interface e mantêm a saída original em inglês.
   1. **Smoke OCR separado:** texto sanitizado com `[REDACTED_*]` e nomes de exames preservados (`evidence/02-smoke-ocr.txt`); a CLI não imprime esse texto.
   2. **Smoke RAG separado:** `MOCK-*`, scores e termos sem match (`evidence/02-smoke-rag.json`); a CLI imprime somente nomes/códigos finais, não os scores.
   3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`/`PARTIAL`, exames registrados e preparo fictício; sem reserva de horário. A execução capturada confirmou 6 exames (`evidence/05-run-full.txt`, `evidence/05-protocol-get.json`).
