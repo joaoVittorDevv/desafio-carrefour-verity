@@ -1,0 +1,81 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "assistente_multiferramenta",
+    "description": "Agente único conectado simultaneamente a dois servidores MCP e a uma API OpenAPI"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "ConsultaOutput": {
+      "description": "Resposta consolidada do assistente multiferramenta",
+      "fields": {
+        "resposta": {
+          "type": "str",
+          "description": "Resposta direta à consulta do usuário"
+        },
+        "fontes": {
+          "type": "list[str]",
+          "description": "Ferramentas utilizadas para compor a resposta"
+        },
+        "registro_id": {
+          "type": "str",
+          "description": "Identificador do registro criado na API, se aplicável"
+        }
+      }
+    }
+  },
+  "mcp_servers": [
+    {
+      "id": "kb_docs",
+      "transport": "sse",
+      "url": "http://mcp-kb:9201/sse",
+      "timeout": 30
+    },
+    {
+      "id": "clima",
+      "transport": "sse",
+      "url": "http://mcp-clima:9202/sse",
+      "timeout": 30
+    }
+  ],
+  "openapi_services": [
+    {
+      "id": "registro_api",
+      "spec_url": "http://registro-api:9300/openapi.json"
+    }
+  ],
+  "orchestration": {
+    "type": "sequential",
+    "name": "pipeline_consulta_unica",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "assistente",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você responde consultas fictícias combinando três fontes: a base de conhecimento (ferramenta 'consultar_kb'), o clima (ferramenta 'consultar_clima') e o registro da interação (operação 'salvar_consulta'). Invoque as ferramentas de conhecimento e clima conforme a pergunta e sempre registre a resposta na API antes de finalizar. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema ConsultaOutput: resposta com o conteúdo, fontes com os nomes das ferramentas usadas e registro_id com o identificador retornado pela API.",
+        "mcp_bindings": [
+          {
+            "server_id": "kb_docs",
+            "allowed_tools": ["consultar_kb"]
+          },
+          {
+            "server_id": "clima",
+            "allowed_tools": ["consultar_clima"]
+          }
+        ],
+        "openapi_bindings": [
+          {
+            "service_id": "registro_api",
+            "allowed_operations": ["salvar_consulta"]
+          }
+        ],
+        "output_key": "consulta_final",
+        "output_schema_ref": "ConsultaOutput"
+      }
+    ]
+  }
+}

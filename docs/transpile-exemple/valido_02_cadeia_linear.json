@@ -1,0 +1,83 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "triagem_chamados",
+    "description": "Cadeia linear de dois agentes com contrato tipado entre etapas (triagem e diagnóstico de chamados fictícios)"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "ChamadoItem": {
+      "description": "Chamado fictício extraído da fila",
+      "fields": {
+        "titulo": {
+          "type": "str",
+          "description": "Título curto do chamado"
+        },
+        "severidade": {
+          "type": "str",
+          "description": "baixa, media ou alta"
+        }
+      }
+    },
+    "TriagemOutput": {
+      "description": "Resultado da triagem da fila de chamados",
+      "fields": {
+        "chamados": {
+          "type": "list[ChamadoItem]",
+          "description": "Chamados identificados na fila"
+        },
+        "total": {
+          "type": "int",
+          "description": "Quantidade total de chamados triados"
+        }
+      }
+    },
+    "DiagnosticoOutput": {
+      "description": "Diagnóstico consolidado da triagem",
+      "fields": {
+        "prioridade": {
+          "type": "str",
+          "description": "Prioridade geral derivada das severidades"
+        },
+        "justificativa": {
+          "type": "str",
+          "description": "Breve justificativa da prioridade escolhida"
+        },
+        "chamados_confirmados": {
+          "type": "list[ChamadoItem]",
+          "description": "Chamados reconfirmados no diagnóstico"
+        }
+      }
+    }
+  },
+  "mcp_servers": [],
+  "openapi_services": [],
+  "orchestration": {
+    "type": "sequential",
+    "name": "pipeline_triagem_diagnostico",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "triador",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você tria uma fila fictícia de chamados descrita pelo usuário. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema TriagemOutput: chamados como lista de itens com titulo e severidade (baixa, media ou alta) e total igual ao tamanho da lista.",
+        "output_key": "chamados_triados",
+        "output_schema_ref": "TriagemOutput"
+      },
+      {
+        "name": "diagnosticador",
+        "model": "gemini-2.5-flash",
+        "instruction": "Os chamados triados chegam como JSON estruturado na mensagem do usuário desta etapa (schema TriagemOutput); não há interpolação no prompt do sistema. Avalie as severidades e responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema DiagnosticoOutput: prioridade (baixa, media ou alta), justificativa em uma frase e chamados_confirmados reproduzindo os itens recebidos.",
+        "output_key": "diagnostico",
+        "output_schema_ref": "DiagnosticoOutput",
+        "input_key": "chamados_triados",
+        "input_schema_ref": "TriagemOutput",
+        "include_contents": "none"
+      }
+    ]
+  }
+}

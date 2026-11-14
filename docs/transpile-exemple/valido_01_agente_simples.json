@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "resumidor_simples",
+    "description": "Pipeline mínimo: um único agente sem ferramentas externas que resume texto"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "ResumoOutput": {
+      "description": "Resumo estruturado do texto de entrada",
+      "fields": {
+        "resumo": {
+          "type": "str",
+          "description": "Texto resumido em até três frases"
+        },
+        "total_palavras": {
+          "type": "int",
+          "description": "Contagem aproximada de palavras do resumo"
+        }
+      }
+    }
+  },
+  "mcp_servers": [],
+  "openapi_services": [],
+  "orchestration": {
+    "type": "sequential",
+    "name": "pipeline_resumo_simples",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "resumidor",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você resume textos em português. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema ResumoOutput: resumo com até três frases fiéis ao texto original e total_palavras com a contagem aproximada de palavras do resumo.",
+        "output_key": "resumo_final",
+        "output_schema_ref": "ResumoOutput"
+      }
+    ]
+  }
+}

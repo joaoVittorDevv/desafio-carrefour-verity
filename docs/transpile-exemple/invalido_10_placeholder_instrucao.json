@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "placeholder_na_instrucao",
+    "description": "Instruction de agente com input tipado tenta interpolar placeholder de estado, prática proibida pela DSL"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": ["PERSON"],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "SaidaEtapaUm": {
+      "description": "Saída da primeira etapa",
+      "fields": {
+        "conteudo": {
+          "type": "str",
+          "description": "Conteúdo produzido na etapa um"
+        }
+      }
+    },
+    "SaidaEtapaDois": {
+      "description": "Saída da segunda etapa",
+      "fields": {
+        "veredito": {
+          "type": "str",
+          "description": "Veredito da etapa dois"
+        }
+      }
+    }
+  },
+  "mcp_servers": [],
+  "openapi_services": [],
+  "orchestration": {
+    "type": "sequential",
+    "name": "pipeline_placeholder",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "etapa_um",
+        "model": "gemini-2.5-flash",
+        "instruction": "Responda SOMENTE com JSON válido conforme o schema SaidaEtapaUm.",
+        "output_key": "saida_um",
+        "output_schema_ref": "SaidaEtapaUm"
+      },
+      {
+        "name": "etapa_dois",
+        "model": "gemini-2.5-flash",
+        "instruction": "Analise o conteúdo {saida_um} recebido e responda SOMENTE com JSON válido conforme o schema SaidaEtapaDois.",
+        "output_key": "saida_dois",
+        "output_schema_ref": "SaidaEtapaDois",
+        "input_key": "saida_um",
+        "input_schema_ref": "SaidaEtapaUm",
+        "include_contents": "none"
+      }
+    ]
+  }
+}

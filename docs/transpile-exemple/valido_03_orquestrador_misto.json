@@ -1,0 +1,148 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "name": "auditoria_conhecimento",
+    "description": "Orquestrador sequential de quatro etapas com dois servidores MCP, um agente de passagem sem ferramentas e registro via OpenAPI"
+  },
+  "guardrails": {
+    "enable_pii_redaction": true,
+    "entities": ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "CPF"],
+    "mask_token": "[REDACTED]"
+  },
+  "schemas": {
+    "DocumentoColetado": {
+      "description": "Documento fictício recuperado da base de conhecimento",
+      "fields": {
+        "titulo": {
+          "type": "str",
+          "description": "Título do documento recuperado"
+        },
+        "trecho_relevante": {
+          "type": "str",
+          "description": "Trecho mais relevante do conteúdo"
+        }
+      }
+    },
+    "TextoNormalizado": {
+      "description": "Versão normalizada do documento coletado",
+      "fields": {
+        "texto_limpo": {
+          "type": "str",
+          "description": "Documento reescrito em linguagem objetiva"
+        },
+        "palavras_chave": {
+          "type": "list[str]",
+          "description": "Até cinco palavras-chave do texto"
+        }
+      }
+    },
+    "MetricasTexto": {
+      "description": "Métricas calculadas sobre o texto normalizado",
+      "fields": {
+        "sentimento": {
+          "type": "str",
+          "description": "positivo, neutro ou negativo"
+        },
+        "complexidade": {
+          "type": "str",
+          "description": "simples, media ou alta"
+        }
+      }
+    },
+    "RegistroAuditoria": {
+      "description": "Confirmação do registro fictício na API de auditoria",
+      "fields": {
+        "registro_id": {
+          "type": "str",
+          "description": "Identificador do registro criado pela API"
+        },
+        "status": {
+          "type": "str",
+          "description": "Status retornado pela API"
+        }
+      }
+    }
+  },
+  "mcp_servers": [
+    {
+      "id": "busca_docs",
+      "transport": "sse",
+      "url": "http://mcp-busca:9001/sse",
+      "timeout": 30
+    },
+    {
+      "id": "metricas_texto",
+      "transport": "sse",
+      "url": "http://mcp-metricas:9002/sse",
+      "timeout": 30
+    }
+  ],
+  "openapi_services": [
+    {
+      "id": "auditoria_api",
+      "spec_url": "http://auditoria-api:9100/openapi.json"
+    }
+  ],
+  "orchestration": {
+    "type": "sequential",
+    "name": "pipeline_auditoria_documental",
+    "input_volume_path": "/app/inputs",
+    "agents": [
+      {
+        "name": "coletor",
+        "model": "gemini-2.5-flash",
+        "instruction": "Você recupera o documento fictício mais relevante para o tema informado pelo usuário. Invoque a ferramenta 'buscar_documento' com o tema recebido. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema DocumentoColetado com os campos retornados pela ferramenta.",
+        "mcp_bindings": [
+          {
+            "server_id": "busca_docs",
+            "allowed_tools": ["buscar_documento"]
+          }
+        ],
+        "output_key": "documento",
+        "output_schema_ref": "DocumentoColetado"
+      },
+      {
+        "name": "normalizador",
+        "model": "gemini-2.5-flash",
+        "instruction": "O documento coletado chega como JSON estruturado na mensagem do usuário desta etapa (schema DocumentoColetado); não há interpolação no prompt do sistema. Reescreva o conteúdo em linguagem objetiva. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema TextoNormalizado.",
+        "output_key": "texto_normalizado",
+        "output_schema_ref": "TextoNormalizado",
+        "input_key": "documento",
+        "input_schema_ref": "DocumentoColetado",
+        "include_contents": "none"
+      },
+      {
+        "name": "enriquecedor",
+        "model": "gemini-2.5-flash",
+        "instruction": "O texto normalizado chega como JSON estruturado na mensagem do usuário desta etapa (schema TextoNormalizado); não há interpolação no prompt do sistema. Invoque a ferramenta 'analisar_texto' com o texto_limpo recebido. Responda SOMENTE com JSON válido, sem cercas de código, seguindo o schema MetricasTexto com os campos retornados pela ferramenta.",
+        "mcp_bindings": [
+          {
+            "server_id": "metricas_texto",
+            "allowed_tools": ["analisar_texto"]
+          }
+        ],
+        "output_key": "metricas",
+        "output_schema_ref": "MetricasTexto",
+        "input_key": "texto_normalizado",
+        "input_schema_ref": "TextoNormalizado",
+        "include_contents": "none"
+      },
+      {
+        "name": "registrador",
+        "model": "gemini-2.5-flash",
+        "instruction": "As métricas do texto chegam como JSON estruturado na mensagem do usuário desta etapa (schema MetricasTexto); não há interpolação no prompt do sistema. SEMPRE invoque a operação 'criar_registro' antes de responder; não simule resposta. Responda SOMENTE com JSON válido, sem cercas de código, reproduzindo a resposta da API conforme o schema RegistroAuditoria.",
+        "openapi_bindings": [
+          {
+            "service_id": "auditoria_api",
+            "allowed_operations": ["criar_registro"]
+          }
+        ],
+        "output_key": "registro",
+        "output_schema_ref": "RegistroAuditoria",
+        "input_key": "metricas",
+        "input_schema_ref": "MetricasTexto",
+        "include_contents": "none"
+      }
+    ]
+  }
+}
