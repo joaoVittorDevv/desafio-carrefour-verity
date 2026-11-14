@@ -100,6 +100,25 @@ def test_cli_exit_codes_mock_only(monkeypatch):
     assert "sensitive value" not in result.stdout
 
 
+def test_cli_duplicate_post_is_reported_as_ambiguous(monkeypatch):
+    import runtime.cli as cli
+    from security.adk_callbacks import RegistrationAlreadyAttemptedError
+
+    monkeypatch.setattr(cli, "check_image", lambda *a: None)
+    monkeypatch.setattr(cli, "check_preflight", lambda *a: None)
+
+    async def duplicate(*_args):
+        raise RegistrationAlreadyAttemptedError("MARCADOR-INTERNO")
+
+    monkeypatch.setattr(cli, "execute_pipeline", duplicate)
+    result = CliRunner().invoke(app, ["run", "--image", "/app/inputs/test.png"])
+    assert result.exit_code == 40
+    assert "pode já ter sido efetuado" in result.stdout
+    assert "consulte a API antes de repetir" in result.stdout
+    assert "não registrada" not in result.stdout
+    assert "MARCADOR-INTERNO" not in result.stdout
+
+
 def test_cli_success_feedback_is_in_portuguese(monkeypatch):
     import runtime.cli as cli
 

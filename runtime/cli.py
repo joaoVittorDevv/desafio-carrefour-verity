@@ -74,13 +74,14 @@ def _labeled_failure(exc: Exception, current_agent: str) -> AgentPipelineExecuti
 
 def _preserves_contract_exit(exc: Exception) -> bool:
     """Privacy violations and incomplete orders keep their dedicated exit codes."""
-    from security.adk_callbacks import IncompleteOrderError
+    from security.adk_callbacks import IncompleteOrderError, RegistrationAlreadyAttemptedError
 
     try:
         from security import GuardrailViolation
     except ImportError:
         GuardrailViolation = None
-    preserved = (IncompleteOrderError, GuardrailViolation) if GuardrailViolation else (IncompleteOrderError,)
+    preserved = ((IncompleteOrderError, RegistrationAlreadyAttemptedError, GuardrailViolation)
+                 if GuardrailViolation else (IncompleteOrderError, RegistrationAlreadyAttemptedError))
     return isinstance(exc, preserved)
 
 
@@ -262,8 +263,10 @@ def run(
         _fail(40, "Não foi possível confirmar a solicitação. "
                   "Se a API chegou a ser chamada, consulte-a antes de repetir.")
     except Exception as exc:
-        from security.adk_callbacks import IncompleteOrderError
+        from security.adk_callbacks import IncompleteOrderError, RegistrationAlreadyAttemptedError
 
+        if isinstance(exc, RegistrationAlreadyAttemptedError):
+            _fail(40, "O registro pode já ter sido efetuado; consulte a API antes de repetir a operação.")
         if isinstance(exc, IncompleteOrderError):
             _fail(40, "Pedido incompleto ou não reconciliado; solicitação não registrada.")
         try:

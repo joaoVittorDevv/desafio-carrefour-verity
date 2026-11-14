@@ -31,7 +31,7 @@ def no_pii(value: str) -> str:
         # pt_core_news_sm flags exam names and lab categories as PERSON; the shared
         # catalog lexicon guard (same defense as the OCR guardrail) keeps them flowing.
         for item in analyzer.analyze(text=value, language="pt", entities=["PERSON"]):
-            if _looks_like_exam(value[item.start:item.end]):
+            if value[item.start:item.end] == "PII" or _looks_like_exam(value[item.start:item.end]):
                 continue
             raise ValueError("Sensitive personal data is not accepted or privacy check is unavailable")
     except ValueError:

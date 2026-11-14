@@ -18,9 +18,11 @@ def test_tool_results_required_and_registration_checked_before_post():
     assert before_tool_callback(ocr_tool, {"file_path": "/app/inputs/pedido.png"}, context) is None
     ocr = {"sanitized_text": "Paciente: [REDACTED_PERSON]\nHemograma",
            "pii_redaction_report": {"total_redacted": 1}}
-    assert after_tool_callback(ocr_tool, {}, context, {
+    projected = after_tool_callback(ocr_tool, {}, context, {
         "content": [{"type": "text", "text": json.dumps(ocr)}], "isError": False,
-    }) is None
+    })
+    assert projected == {"sanitized_text": ocr["sanitized_text"],
+                         "pii_redaction_report": {"total_redacted": 1}}
     assert context.state["_ocr_verified"]["pii_entities_masked"] == 1
 
     context.state["extracted_exams"] = {"exams": [{"raw_name": "Hemograma"}]}
@@ -57,6 +59,127 @@ def test_tool_results_required_and_registration_checked_before_post():
                     "unmatched_terms": [], "protocol_id": "LAB-MOCK"}
     after_tool_callback(api_tool, args, context, confirmation)
     assert context.state["_booking_verified"] == confirmation
+
+
+def test_ocr_callbacks_accept_masked_patient_label_without_weakening_evidence(monkeypatch):
+    from security import adk_callbacks
+
+    class PatientLabelAnalyzer:
+        def analyze(self, *, text, language, entities):
+            start = text.find("Paciente")
+            return [SimpleNamespace(start=start, end=start + len("Paciente"))] if start >= 0 else []
+
+    monkeypatch.setattr(adk_callbacks, "local_analyzer", PatientLabelAnalyzer)
+    tool = SimpleNamespace(name="extract_and_anonymize_medical_order")
+    state = {"expected_image_path": "/app/inputs/pedido.png"}
+    context = SimpleNamespace(state=state)
+    assert before_tool_callback(tool, {"file_path": state["expected_image_path"]}, context) is None
+    response = {"sanitized_text": "Paciente: [REDACTED_PERSON]\\nHemograma",
+                "pii_redaction_report": {"total_redacted": 1}}
+    projected = after_tool_callback(tool, {}, context, {"structuredContent": response})
+    assert projected == {"sanitized_text": response["sanitized_text"],
+                         "pii_redaction_report": {"total_redacted": 1}}
+    assert state["_ocr_verified"] == {"sanitized_text": response["sanitized_text"],
+                                      "pii_entities_masked": 1}
+    assert before_tool_callback(tool, {"file_path": state["expected_image_path"]}, context) is None
+    with pytest.raises(ValueError):
+        before_tool_callback(tool, {"file_path": "/app/inputs/outra.png"}, context)
+
+
+@pytest.mark.parametrize("unsafe", [
+    "Paciente: Ada Silva",
+    "Paciente: [REDACTED_PERSON] Ada Silva",
+    "Paciente: [REDACTED_PERSON",
+    "Paciente: [REDACTED_PERSON]\\nCPF: 123.456.789-00",
+    "Paciente: [REDACTED_PERSON]| Ada Silva",
+    "Paciente: [REDACTED_PERSON]; Ada Silva",
+    "Paciente: ",
+], ids=["unmasked-person", "name-after-mask", "incomplete-mask", "cpf-after-mask", "pipe-after-mask", "semicolon-after-mask", "bare-label"])
+def test_ocr_callbacks_reject_residual_pii_without_saving_evidence(monkeypatch, unsafe):
+    from security import adk_callbacks
+
+    class PatientLabelAnalyzer:
+        def analyze(self, *, text, language, entities):
+            start = text.find("Paciente")
+            return [SimpleNamespace(start=start, end=start + len("Paciente"))] if start >= 0 else []
+
+    monkeypatch.setattr(adk_callbacks, "local_analyzer", PatientLabelAnalyzer)
+    tool = SimpleNamespace(name="extract_and_anonymize_medical_order")
+    context = SimpleNamespace(state={"expected_image_path": "/app/inputs/pedido.png"})
+    with pytest.raises(GuardrailViolation):
+        before_tool_callback(tool, {"file_path": context.state["expected_image_path"],
+                                    "sanitized_text": unsafe}, context)
+    with pytest.raises(GuardrailViolation):
+        after_tool_callback(tool, {}, context, {"structuredContent": {
+            "sanitized_text": unsafe, "pii_redaction_report": {"total_redacted": 1}}})
+    assert "_ocr_verified" not in context.state
+
+
+def test_ocr_tool_response_to_model_contains_only_verified_sanitized_fields(monkeypatch):
+    from security import adk_callbacks
+
+    class FilenameNer:
+        def analyze(self, *, text, language, entities):
+            start = text.find("pedido_clinico")
+            return [SimpleNamespace(start=start, end=start + len("pedido_clinico"))] if start >= 0 else []
+
+    monkeypatch.setattr(adk_callbacks, "local_analyzer", FilenameNer)
+    tool = SimpleNamespace(name="extract_and_anonymize_medical_order")
+    args = {"file_path": "/app/inputs/pedido_clinico.png"}
+    response = {"file_name": "pedido_clinico.png", "sanitized_text": "Paciente: [REDACTED_PERSON]\\nSolicito:\\n1. Hemograma",
+                "pii_redaction_report": {"total_redacted": 1, "entities_found": ["PERSON"]},
+                "ocr_confidence": 0.99}
+    ctx = SimpleNamespace(state={"expected_image_path": args["file_path"]})
+    model_response = after_tool_callback(tool, args, ctx, {"content": [{"type": "text", "text": json.dumps(response)}]})
+    assert model_response["sanitized_text"] == response["sanitized_text"]
+    assert model_response["pii_redaction_report"]["total_redacted"] == 1
+    assert "file_name" not in model_response and "content" not in model_response
+    adk_callbacks._inspect(model_response)
+    assert ctx.state["_ocr_verified"] == {"sanitized_text": response["sanitized_text"], "pii_entities_masked": 1}
+
+
+def test_ocr_filename_uses_regex_and_exact_requested_basename(monkeypatch):
+    from security import adk_callbacks
+
+    class FilenameNer:
+        def analyze(self, *, text, language, entities):
+            if text == "pedido_clinico.png":
+                return [SimpleNamespace(start=0, end=len(text))]
+            return []
+
+    monkeypatch.setattr(adk_callbacks, "local_analyzer", FilenameNer)
+    tool = SimpleNamespace(name="extract_and_anonymize_medical_order")
+    args = {"file_path": "/app/inputs/pedido_clinico.png"}
+    response = {"file_name": "pedido_clinico.png", "sanitized_text": "Solicito:\n1. Hemograma",
+                "pii_redaction_report": {"total_redacted": 0}}
+    ctx = SimpleNamespace(state={"expected_image_path": args["file_path"]})
+    assert after_tool_callback(tool, args, ctx, response)["sanitized_text"] == response["sanitized_text"]
+    assert ctx.state["_ocr_verified"]["sanitized_text"] == response["sanitized_text"]
+    for name in ("outro.png", "CPF-123.456.789-00.png", "../../pedido_clinico.png"):
+        blocked = SimpleNamespace(state={"expected_image_path": args["file_path"]})
+        with pytest.raises(GuardrailViolation):
+            after_tool_callback(tool, args, blocked, {**response, "file_name": name})
+        assert "_ocr_verified" not in blocked.state
+    with pytest.raises(GuardrailViolation):
+        after_tool_callback(tool, args, ctx, {**response, "sanitized_text": "CPF: 123.456.789-00"})
+
+
+def test_registration_tool_never_repeats_after_attempt_even_without_response():
+    from security.adk_callbacks import RegistrationAlreadyAttemptedError
+
+    exam = {"original_query": "Hemograma", "tuss_code": "MOCK-0001", "official_name": "Hemograma (simulado)",
+            "category": "Hematologia", "fasting_hours": 0, "confidence_score": 0.9}
+    resolved = {"matched_exams": [exam], "unmatched_terms": []}
+    state = {"extracted_exams": {"exams": [{"raw_name": "Hemograma"}]},
+             "resolved_exams": resolved, "_rag_verified": resolved}
+    ctx = SimpleNamespace(state=state)
+    tool = SimpleNamespace(name="create_exam_appointment")
+    args = {"exams": [exam], "unmatched_terms": []}
+    assert before_tool_callback(tool, args, ctx) is None
+    assert state["_booking_attempted"] is True
+    with pytest.raises(RegistrationAlreadyAttemptedError):
+        before_tool_callback(tool, args, ctx)
+    assert state["_booking_attempted"] is True
 
 
 def test_complete_order_requires_exact_order_and_multiplicity():

@@ -84,6 +84,15 @@ def _spans(text: str, analyzer=None):
     if analyzer is not None:
         # AnalyzerEngine must be configured with a *local* pt_core_news_sm model by the caller.
         for item in analyzer.analyze(text=text, language="pt", entities=["PERSON"]):
+            # Some NER models tag the label itself after its value was redacted.
+            if text[item.start:item.end].casefold() == "paciente":
+                remainder = text[item.end:]
+                if re.match(r":[ \t]*\[REDACTED_PERSON\](?=$|\n|\\n|\"[,}])", remainder):
+                    continue
+                value = re.match(r":[ \t]*([^\n|;\\\"]+)", remainder)
+                if value and any(entity == "PERSON" and start == item.end + value.start(1)
+                                 for start, _, entity in spans):
+                    continue
             if _looks_like_exam(text[item.start:item.end]):
                 continue
             spans.append((item.start, item.end, "PERSON"))

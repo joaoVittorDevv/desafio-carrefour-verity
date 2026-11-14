@@ -66,6 +66,51 @@ def test_exam_names_flagged_as_person_by_ner_are_not_masked(monkeypatch, tmp_pat
     assert result.sanitized_text.count("[REDACTED_PERSON]") >= 1
 
 
+class PatientLabelAnalyzer:
+    """Simulate NER tagging the label rather than the masked patient value."""
+
+    def analyze(self, *, text, language, entities):
+        assert language == "pt" and entities == ["PERSON"]
+        start = text.find("Paciente")
+        return [SimpleNamespace(start=start, end=start + len("Paciente"))] if start >= 0 else []
+
+
+def test_patient_label_ner_accepts_only_complete_masked_placeholder():
+    analyzer = PatientLabelAnalyzer()
+    sanitized = "Paciente: [REDACTED_PERSON]\nHemograma"
+    assert_no_pii(sanitized, analyzer)
+    result = redact_pii("Paciente: Ada Silva\nHemograma", analyzer)
+    assert result.sanitized_text == sanitized
+    assert_no_pii(result.sanitized_text, analyzer)
+
+
+@pytest.mark.parametrize("unsafe", [
+    "Paciente: Ada Silva\nHemograma",
+    "Paciente: [REDACTED_PERSON] Ada Silva\nHemograma",
+    "Paciente: [REDACTED_PERSON\nHemograma",
+    "Paciente: [REDACTED_PERSON]\nCPF: 123.456.789-00",
+    "Paciente: [REDACTED_PERSON]| Ada Silva",
+    "Paciente: [REDACTED_PERSON]; Ada Silva",
+    "Paciente: \nHemograma",
+], ids=["unmasked-person", "name-after-mask", "incomplete-mask", "cpf-after-mask", "pipe-after-mask", "semicolon-after-mask", "bare-label"])
+def test_patient_label_ner_rejects_incomplete_or_residual_pii(unsafe):
+    with pytest.raises(GuardrailViolation):
+        assert_no_pii(unsafe, PatientLabelAnalyzer())
+
+
+def test_patient_label_ner_does_not_hide_person_after_placeholder():
+    class LabelAndNameAnalyzer(PatientLabelAnalyzer):
+        def analyze(self, *, text, language, entities):
+            spans = super().analyze(text=text, language=language, entities=entities)
+            start = text.find("Ada Silva")
+            if start >= 0:
+                spans.append(SimpleNamespace(start=start, end=start + len("Ada Silva")))
+            return spans
+
+    with pytest.raises(GuardrailViolation):
+        assert_no_pii("Paciente: [REDACTED_PERSON] Ada Silva", LabelAndNameAnalyzer())
+
+
 def test_local_analyzer_does_not_download_missing_model(monkeypatch):
     import sys
     monkeypatch.setitem(sys.modules, "spacy", SimpleNamespace(util=SimpleNamespace(is_package=lambda name: False)))

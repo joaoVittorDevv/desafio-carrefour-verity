@@ -2,6 +2,7 @@
 
 import json
 import math
+from pathlib import Path
 from collections.abc import Mapping
 
 from security.pii_guardrail import BLOCK_MESSAGE, GuardrailViolation, assert_no_pii, local_analyzer
@@ -118,6 +119,10 @@ class IncompleteOrderError(ValueError):
     """A typed order is incomplete; no registration tool may be called."""
 
 
+class RegistrationAlreadyAttemptedError(ValueError):
+    """A prior POST may have committed; a second call cannot be attempted."""
+
+
 def require_complete_order(extracted, resolved):
     """Require ordered, repeated OCR terms to match all catalog evidence."""
     try:
@@ -154,6 +159,11 @@ def before_tool_callback(tool, args, tool_context):
                 args.get("unmatched_terms", []) != resolved["unmatched_terms"]):
             raise ValueError("Registration differs from verified RAG results")
         require_complete_order(state.get("extracted_exams"), resolved)
+        if state.get("_booking_attempted"):
+            raise RegistrationAlreadyAttemptedError("Registration already attempted; consult API before retry")
+        # A response may be lost after the POST commits; never allow a second
+        # invocation in the same session, even if _booking_verified is absent.
+        state["_booking_attempted"] = True
     return None
 
 
@@ -169,18 +179,36 @@ def after_tool_callback(tool, args, tool_context, tool_response):
     if BLOCK_MESSAGE in json.dumps(tool_response, ensure_ascii=False, default=str):
         raise GuardrailViolation()
     result = _tool_result(tool_response)
-    _inspect(result)
     if tool.name == "extract_and_anonymize_medical_order":
+        # Filename is an operator-chosen path, not OCR text: validate provenance and
+        # deterministic PII, while NER still inspects every field sent to the LLM.
+        name = result.get("file_name")
+        if name is not None:
+            if not isinstance(name, str) or name != Path(args.get("file_path", "")).name:
+                raise GuardrailViolation()
+            try:
+                assert_no_pii(name, None)
+            except Exception:
+                raise GuardrailViolation() from None
+        _inspect({key: value for key, value in result.items() if key != "file_name"})
         report = _as_dict(result.get("pii_redaction_report"))
         if not isinstance(result.get("sanitized_text"), str) or not isinstance(report.get("total_redacted"), int):
             raise ValueError("OCR did not return validated sanitized text")
         result = {"sanitized_text": result["sanitized_text"],
                   "pii_entities_masked": report["total_redacted"]}
-    elif tool.name == "search_exam_catalog_hybrid":
+        tool_context.state[keys[tool.name]] = result
+        # MCP also sends a JSON text block to the next model call. Replace it with
+        # the same validated projection; the original block still carries metadata
+        # and a basename the generic NER may wrongly classify as a person.
+        return {"sanitized_text": result["sanitized_text"],
+                "pii_redaction_report": {"total_redacted": result["pii_entities_masked"]}}
+    else:
+        _inspect(result)
+    if tool.name == "search_exam_catalog_hybrid":
         if not isinstance(result.get("matched_exams"), list) or not isinstance(result.get("unmatched_terms"), list):
             raise ValueError("RAG tool result invalid")
         result = {"matched_exams": result["matched_exams"], "unmatched_terms": result["unmatched_terms"]}
-    elif (result.get("scheduled_exams") != args.get("exams") or
+    elif tool.name == "create_exam_appointment" and (result.get("scheduled_exams") != args.get("exams") or
           result.get("unmatched_terms") != args.get("unmatched_terms", [])):
         raise ValueError("API result differs from submitted exams")
     tool_context.state[keys[tool.name]] = result

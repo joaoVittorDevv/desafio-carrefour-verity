@@ -113,6 +113,21 @@ def test_partial_post_rejected_but_historical_get_supported(api, payload):
     assert historical.json()["unmatched_terms"] == payload["unmatched_terms"]
 
 
+def test_privacy_acronym_pii_is_not_a_person_but_actual_person_is_blocked(monkeypatch):
+    def analyze(*, text, language, entities):
+        spans = []
+        for term in ("PII", "Ada Silva"):
+            start = text.find(term)
+            if start >= 0:
+                spans.append(SimpleNamespace(start=start, end=start + len(term)))
+        return spans
+
+    monkeypatch.setattr(schemas, "local_analyzer", lambda: SimpleNamespace(analyze=analyze))
+    assert schemas.no_pii("Pedido fictício processado com PII anonimizada")
+    with pytest.raises(ValueError):
+        schemas.no_pii("Pedido fictício processado com PII; paciente Ada Silva")
+
+
 def test_confirmed_and_not_found(api, payload):
     client, _ = api
     payload["unmatched_terms"] = []
