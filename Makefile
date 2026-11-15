@@ -20,7 +20,7 @@ transpile-local:
 	@test -x .venv/bin/python || { echo 'Sem .venv: rode uv venv && uv pip install --python .venv/bin/python -e ".[dev]"'; exit 2; }
 	.venv/bin/python -m runtime.cli transpile --spec "$(SPEC)" --output "$(OUTPUT)"
 run:
-	docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image /app/inputs/pedido_medico_teste.png
+	docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image /app/inputs/carlos__good.png
 run-image:
 	@test -n "$(IMAGE)" || { echo 'Uso: make run-image IMAGE=/caminho/na/sua/maquina/pedido.png'; exit 2; }
 	@test -f "$(IMAGE)" || { echo "Imagem não encontrada: $(IMAGE)"; exit 2; }

@@ -41,6 +41,7 @@ OUTPUT_SCHEMAS = {
 
 def _validate_output(key):
     def callback(callback_context):
+
         value = callback_context.state.get(key)
         try:
             schema = OUTPUT_SCHEMAS[key]
