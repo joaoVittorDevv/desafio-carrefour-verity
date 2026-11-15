@@ -46,11 +46,11 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
   1. Utilizar **`FastEmbed`** (`intfloat/multilingual-e5-small`, dimensão $d = 384$) sobre `onnxruntime` no `mcp-rag`.
   2. Utilizar **`RapidOCR`** (`rapidocr-onnxruntime`) combinado com **`OpenCV`** (`opencv-python-headless`) no `mcp-ocr`.
   3. **Implementado:** o FastEmbed registra `intfloat/multilingual-e5-small` como modelo custom usando o export ONNX quantizado `Xenova/multilingual-e5-small` (`onnx/model_quantized.onnx`, pooling MEAN + L2, 384 dimensões) e baixa os pesos no build de `mcp-rag`. `mcp-ocr` e `scheduling-api` instalam Presidio e `pt_core_news_sm` nos respectivos builds; o OCR força OpenCV headless. Os testes automatizados permanecem mock-only; houve validação real com a imagem sintética e uma execução autorizada do Gemini.
-* **Motivação:** Inferência local sem GPU e sem API externa de embeddings. Tamanhos locais medidos após o build: OCR 830 MB, RAG 538 MB, API 527 MB e CLI 368 MB (`evidence/01-images-digests.txt`), todos abaixo de 2 GB; cold start e latência ainda não foram medidos.
+* **Motivação:** Inferência local sem GPU e sem API externa de embeddings. Tamanhos locais medidos após o build: OCR 830 MB, RAG 538 MB, API 527 MB e CLI 368 MB, todos abaixo de 2 GB; cold start e latência ainda não foram medidos.
 
 ### ADR-005: Tráfego de Imagem via Volume Compartilhado Read-Only (`/app/inputs`)
 * **Contexto:** Trafegar imagens codificadas em Base64 dentro do prompt do LLM para repassá-las via argumentos JSON de uma chamada MCP SSE degrada drasticamente a latência, consome milhares de tokens desnecessariamente e está sujeito a truncamento pelo modelo.
-* **Decisão:** Montar um volume compartilhado somente-leitura (`./assets:/app/inputs:ro`) entre o container/ambiente do `runtime` (CLI) e o container `mcp-ocr`. O agente recebe e manipula exclusivamente o caminho lógico do arquivo (`file_path: "/app/inputs/pedido_medico_teste.png"`).
+* **Decisão:** Montar um volume compartilhado somente-leitura (`./assets:/app/inputs:ro`) entre o container/ambiente do `runtime` (CLI) e o container `mcp-ocr`. O agente recebe e manipula exclusivamente o caminho lógico do arquivo (`file_path: "/app/inputs/carlos__good.png"`).
 * **Motivação:** Otimização de custo e latência, eliminação de alucinações em strings Base64 e aderência às boas práticas de engenharia de dados com agentes.
 
 ### ADR-006: Defesa em Profundidade para Proteção de Dados Sensíveis (PII Guardrail em Dupla Camada)
@@ -115,7 +115,7 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 |                           AMBIENTE DOCKER COMPOSE                                 |
 |                                                                                   |
 |  [Usuário / Avaliador]                                                            |
-|           |  cli run --spec specs/... --image /app/inputs/pedido_medico_teste.png |
+|           |  cli run --spec specs/... --image /app/inputs/carlos__good.png |
 |           v                                                                       |
 |  +-----------------------------------------------------------------------------+  |
 |  | Container / Host: ADK Runtime (Código Python Gerado pelo Transpilador)      |  |
@@ -416,7 +416,7 @@ O módulo `transpiler/schema.py` deve implementar modelos Pydantic v2 com `@mode
   5. **Contrato de Saída da Tool MCP:**
      ```json
      {
-       "file_name": "pedido_medico_teste.png",
+       "file_name": "carlos__good.png",
        "ocr_confidence": 0.94,
        "sanitized_text": "CLÍNICA VIDA\nPaciente: [REDACTED_PERSON]\nCPF: [REDACTED_CPF] RG: [REDACTED_RG] Tel: [REDACTED_PHONE]\nE-mail: [REDACTED_EMAIL]\nSolicito:\n1. Hemograma Completo\n2. Glicemia de Jejum\n3. TSH Ultra Sensível\n4. Vitamina D (25-OH)\nMédico: [REDACTED_PERSON] - [REDACTED_CRM]",
        "pii_redaction_report": {
@@ -605,7 +605,6 @@ Para validar que a ferramenta atingiu o nível de maturidade esperado na revisã
 desafio-carrefour-verity/              # Nome do diretório; pacote Python: clinical-adk-transpiler
 ├── HANDOFF.md                           # Histórico de contexto, não contrato de execução
 ├── .gitignore / .dockerignore           # Exclusões de Git e contexto Docker
-├── evidence/                            # Capturas verificáveis da execução sintética
 ├── docker-compose.yml                  # Orquestração completa (Postgres, 2 MCPs SSE, FastAPI, CLI)
 ├── Dockerfile.runtime                  # Imagem da CLI, Transpilador e Runtime Google ADK
 ├── Makefile                            # Atalhos de automação (setup, transpile, run, test, logs)
@@ -614,14 +613,18 @@ desafio-carrefour-verity/              # Nome do diretório; pacote Python: clin
 ├── README.md                           # Índice do projeto, estado atual e transparência de IA
 ├── docs/
 │   ├── especificacao-tecnica-e-arquitetura.md # Este documento, fonte de verdade
-│   └── DESAFIO_SENIOR_IA.pdf           # Enunciado original do desafio
+│   ├── DESAFIO_SENIOR_IA.pdf           # Enunciado original do desafio
+│   ├── transpile-exemple/              # Specs de exemplo (válidas e inválidas) + código gerado
+│   └── evidences/                      # Evidências de funcionamento versionadas (logs, Swagger, CLI)
 ├── infra/
 │   └── init.sql                        # Criação das extensões vector/pg_trgm e schemas rag/scheduling
 ├── specs/
 │   └── clinical_agent_spec.json        # Manifesto JSON de exemplo do agente (Entregável 2)
 ├── assets/
-│   ├── generate_sample_order.py        # Script gerador da imagem de pedido médico fictício
-│   └── pedido_medico_teste.png         # Imagem digitada e fictícia, bem enquadrada (Entregável 3)
+│   ├── carlos__good.png                # Entrada principal, digitada e fictícia (Entregável 3)
+│   ├── ana__good.png / juliana__good.png / marina__good.png / rafael__good.png   # Variantes legíveis
+│   ├── carlos__shadow.jpg / marina__cropped.jpg   # Variantes de estresse (sombra, corte)
+│   └── pedro__bad.jpg                  # Caso ilegível (bloqueio fail-closed)
 ├── security/
 │   ├── __init__.py
 │   ├── pii_guardrail.py                # Motor Presidio + Regex BR (CPF, RG, CRM, Nome, Tel)
@@ -677,21 +680,14 @@ desafio-carrefour-verity/              # Nome do diretório; pacote Python: clin
         └── test_full_clinical_flow.py  # Fluxo E2E simulado, sem rede/modelos
 ```
 
-### 8.2. Geração da Imagem de Teste Fictícia (`assets/pedido_medico_teste.png`)
-Para assegurar reprodutibilidade usando apenas dados fictícios e texto digitado:
-* O script `assets/generate_sample_order.py` (utilizando `Pillow`) gera a imagem principal digitada com leve rotação ($1.2^\circ$) e fundo claro. As variantes com blur, sombra, corte e adendo itálico em `assets/fixtures/` são **históricas** e não definem a entrada suportada pela demonstração atual. A imagem principal contém:
-  * **Cabeçalho com PII fictícia (alvo do guardrail):** identidade, CPF, RG, telefone e e-mail inventados (valores definidos em `DEFAULT_ORDER` no gerador).
-  * **Corpo digitado (`Solicito:`):**
-    * `1. Hemoglobina Glicada (HbA1c)`
-    * `2. Glicose Pós-Prandial`
-    * `3. Insulina Basal`
-    * `4. Peptídeo C`
-    * `5. Microalbuminúria Urinária`
-  * **Rodapé:** assinatura médica e aviso fictício digitados. Não há linha manuscrita ou adendo itálico na imagem principal.
+### 8.2. Imagens de Teste Fictícias (`assets/`)
+Para assegurar reprodutibilidade usando apenas dados fictícios e texto digitado, a demonstração usa um conjunto de imagens geradas programaticamente (sem manuscrito):
+* **Entrada principal (`assets/carlos__good.png`, Entregável 3):** cabeçalho com PII fictícia alvo do guardrail (identidade, CPF, RG, telefone e e-mail inventados) e corpo digitado `Solicito:` com exames enumerados: Hemograma Completo, Glicemia de Jejum, Hormônio Tireoestimulante (TSH), Colesterol Total e Frações (Lipidograma) e Vitamina D (25-Hidroxi); rodapé com assinatura médica e aviso fictício, ambos digitados.
+* **Variantes:** legíveis (`ana__good.png`, `juliana__good.png`, `marina__good.png`, `rafael__good.png`), estresse de captura (`carlos__shadow.jpg` com sombra, `marina__cropped.jpg` cortada) e caso ilegível (`pedro__bad.jpg`), que exercem o bloqueio fail-closed da CLI.
 
 ### 8.3. Procedimento Passo a Passo de Execução e Validação (Checklist de Entrega)
 
-Os modelos locais são provisionados nos builds Docker. Os testes automatizados continuam mock-only (sem chamadas a OCR, embeddings, MCP, banco, HTTP ou LLM reais); smokes e execuções com Gemini anteriores demonstraram a arquitetura com imagens **sintéticas**; o novo contrato de aceitação integral ainda não foi revalidado em execução real. A chave fica exclusivamente em `.env`. Veja as capturas em `evidence/` e as limitações no README.
+Os modelos locais são provisionados nos builds Docker. Os testes automatizados continuam mock-only (sem chamadas a OCR, embeddings, MCP, banco, HTTP ou LLM reais); smokes e execuções com Gemini anteriores demonstraram a arquitetura com imagens **sintéticas**, e o contrato de aceitação integral foi **revalidado em execução real com Gemini em 15/11/2026** — pedidos completos registrados como `CONFIRMED` ([`docs/evidences/06-run-cli-valida.log`](evidences/06-run-cli-valida.log) e captura de tela da CLI). A chave fica exclusivamente em `.env`. Veja as evidências em [`docs/evidences/`](evidences/) e as limitações no README.
 
 #### Etapa 1: Configuração Inicial e Build da Infraestrutura
 ```bash
@@ -711,7 +707,7 @@ docker compose ps
 docker compose run --rm agent-cli python -m runtime.cli preflight
 ```
 * **Resultado esperado:**
-  * `Verificação dos serviços concluída.` e exit 0 quando a chave está presente e os três serviços respondem `/health` (o healthcheck do RAG exige pelo menos 125 exames). O arquivo `evidence/03-preflight.txt` é uma captura anterior à tradução da CLI e contém `Preflight OK`; não é a saída textual atual. A contagem de 150 foi verificada separadamente no Postgres e em `evidence/02-rag-seed-log.txt`.
+  * `Verificação dos serviços concluída.` e exit 0 quando a chave está presente e os três serviços respondem `/health` (o healthcheck do RAG exige pelo menos 125 exames). A contagem de 150 pode ser conferida no Postgres (`SELECT count(*) FROM rag.exams_catalog;`) — o seed é idempotente e roda no boot do container.
 
 #### Etapa 3: Execução do Transpilador ($\text{JSON} \rightarrow \text{Python ADK}$)
 ```bash
@@ -727,12 +723,12 @@ docker compose run --rm --no-deps agent-cli python -m runtime.cli transpile \
 # Executa o agente gerado processando a imagem de pedido médico fictício
 docker compose run --rm agent-cli python -m runtime.cli run \
   --agent-module runtime.generated.clinical_exam_scheduler_agent \
-  --image /app/inputs/pedido_medico_teste.png
+  --image /app/inputs/carlos__good.png
 ```
-* **Saída Visual Esperada no Terminal (Rich):** o `run` mostra feedback em português durante a validação de imagem/serviços, extração e proteção de dados, busca RAG, registro e conferência do resultado. Usa indicador animado em TTY e não mostra texto extraído, argumentos nem respostas de ferramentas. Só informa conclusão do registro após validar o estado final. As capturas `evidence/05-run-full.txt` são anteriores a essa melhoria de interface e mantêm a saída original em inglês.
-  1. **Smoke OCR separado:** texto sanitizado com `[REDACTED_*]` e nomes de exames preservados (`evidence/02-smoke-ocr.txt`); a CLI não imprime esse texto.
-  2. **Smoke RAG separado:** `MOCK-*`, scores e termos sem match (`evidence/02-smoke-rag.json`); a CLI imprime somente nomes/códigos finais, não os scores.
-  3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`, exames registrados e preparo fictício; sem reserva de horário. As capturas `evidence/05-run-full.txt` e `evidence/05-protocol-get.json` são anteriores à política de registro integral e não são validação do código atual.
+* **Saída Visual Esperada no Terminal (Rich):** o `run` mostra feedback em português durante a validação de imagem/serviços, extração e proteção de dados, busca RAG, registro e conferência do resultado. Usa indicador animado em TTY e não mostra texto extraído, argumentos nem respostas de ferramentas. Só informa conclusão do registro após validar o estado final. A saída atual está registrada em [`docs/evidences/06-run-cli-valida.log`](evidences/06-run-cli-valida.log) e na captura de tela [`06-cli-screenshot.png`](evidences/06-cli-screenshot.png).
+  1. **Smoke OCR separado:** texto sanitizado com `[REDACTED_*]` e nomes de exames preservados; a CLI não imprime esse texto.
+  2. **Smoke RAG separado:** `MOCK-*`, scores e termos sem match; a CLI imprime somente nomes/códigos finais, não os scores.
+  3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`, exames registrados e preparo fictício; sem reserva de horário. A validação atual está em [`docs/evidences/06-run-cli-valida.log`](evidences/06-run-cli-valida.log) e [`06-protocolo-get.json`](evidences/06-protocolo-get.json).
 
 #### Etapa 5: Execução da Suíte Completa de Testes Automatizados
 ```bash
