@@ -1,0 +1,48 @@
+# Evidência 04 — Especificações inválidas: exceções na prática (exit 10)
+# Data: 15/11/2026 16:03:41 -03
+# Rota de usuário: make transpile-local (ambiente local). Os comandos a seguir
+# são exatamente os que um usuário digitaria; nenhum atalho de container.
+# Em todos os casos: mensagem clara do validador, exit 10 e NENHUMA saída gravada.
+
+===================================================================
+== 4a) invalido_01_json_malformado.json — JSON malformado
+===================================================================
+$ make transpile-local SPEC=docs/transpile-exemple/invalido_01_json_malformado.json OUTPUT=/tmp/x.py
+
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/invalido_01_json_malformado.json" --output "/tmp/x.py"
+Especificação inválida: 1 validation error for PipelineSpec
+  Invalid JSON: EOF while parsing an object at line 39 column 0 \n  }\n', 
+input_type=str]
+    For further information visit 
+https://errors.pydantic.dev/2.14/v/json_invalid
+make: *** [Makefile:21: transpile-local] Erro 10
+exit code do CLI: 10 (make reporta 'Erro 10')
+
+===================================================================
+== 4b) invalido_03_transport_nao_sse.json — transporte MCP não-SSE
+===================================================================
+$ make transpile-local SPEC=docs/transpile-exemple/invalido_03_transport_nao_sse.json OUTPUT=/tmp/x.py
+
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/invalido_03_transport_nao_sse.json" --output "/tmp/x.py"
+Especificação inválida: 1 validation error for PipelineSpec
+mcp_servers.0
+  Value error, MCP requires transport 'sse' and an http(s) URL 
+    For further information visit https://errors.pydantic.dev/2.14/v/value_error
+make: *** [Makefile:21: transpile-local] Erro 10
+exit code do CLI: 10 (make reporta 'Erro 10')
+
+===================================================================
+== 4c) invalido_08_schema_ref_inexistente.json — referência cruzada inexistente
+===================================================================
+$ make transpile-local SPEC=docs/transpile-exemple/invalido_08_schema_ref_inexistente.json OUTPUT=/tmp/x.py
+
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/invalido_08_schema_ref_inexistente.json" --output "/tmp/x.py"
+Especificação inválida: 1 validation error for PipelineSpec
+  Value error, orchestration.agents.0.output_schema_ref: unknown schema 
+SaidaFantasma }}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/value_error
+make: *** [Makefile:21: transpile-local] Erro 10
+exit code do CLI: 10 (make reporta 'Erro 10')
+
+## Verificação: nenhuma saída gravada em nenhum dos casos
+ls: não foi possível acessar '/tmp/x.py': Arquivo ou diretório inexistente

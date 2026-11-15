@@ -1,0 +1,34 @@
+# Evidência 06 — Execução real da CLI (fluxo completo OCR → RAG → API, com Gemini)
+# Comando exato do usuário:
+#   make run-image IMAGE=/home/jao/VSCode/desafio-carrefour-verity/assets/carlos__good.png
+# Data: 15/11/2026 16:00:15 -03
+
+if [ "/home/jao/VSCode/desafio-carrefour-verity/assets/carlos__good.png" != "/home/jao/VSCode/desafio-carrefour-verity/assets/carlos__good.png" ]; then cp -f "/home/jao/VSCode/desafio-carrefour-verity/assets/carlos__good.png" assets/; fi
+docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image "/app/inputs/carlos__good.png"
+ Container desafio-carrefour-verity-mcp-ocr-1  Running
+ Container desafio-carrefour-verity-postgres-db-1  Running
+ Container desafio-carrefour-verity-scheduling-api-1  Running
+ Container desafio-carrefour-verity-mcp-rag-1  Running
+ Container desafio-carrefour-verity-postgres-db-1  Waiting
+ Container desafio-carrefour-verity-postgres-db-1  Waiting
+ Container desafio-carrefour-verity-postgres-db-1  Healthy
+ Container desafio-carrefour-verity-postgres-db-1  Healthy
+Validando imagem e serviços...
+✓ Imagem e serviços disponíveis
+Iniciando: Extraindo exames e protegendo dados pessoais...
+✓ Extraindo exames e protegendo dados pessoais
+Iniciando: Conferindo exames no catálogo...
+✓ Conferindo exames no catálogo
+Iniciando: Registrando a solicitação...
+Conferindo o resultado do registro...
+✓ Registrando a solicitação
+Protocolo: LAB-2026-11-15-XYEEZSBPGJ (solicitação confirmada); registrada em 
+2026-11-15T19:00:37.266875Z (não é uma reserva de horário).
+Registrado: Hemograma Completo (código MOCK-0001)
+Registrado: Glicemia de Jejum (código MOCK-0002)
+Registrado: Hormônio Tireoestimulante (TSH) (código MOCK-0003)
+Registrado: Colesterol Total e Frações (Lipidograma) (código MOCK-0006)
+Registrado: Vitamina D (25-Hidroxi) (código MOCK-0004)
+Preparo: Confirme as orientações de preparo com a unidade selecionada.
+
+exit code: 0

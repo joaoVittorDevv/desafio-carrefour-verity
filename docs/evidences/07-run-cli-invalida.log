@@ -1,0 +1,21 @@
+# Evidência 07 — CLI com imagem inválida (falha controlada, exit 20)
+# Arquivo: /tmp/pedido_corrompido.png (texto corrompido com extensão .png)
+# Comando exato do usuário:
+#   make run-image IMAGE=/tmp/pedido_corrompido.png
+# Data: 15/11/2026 16:01:21 -03
+
+if [ "/tmp/pedido_corrompido.png" != "/home/jao/VSCode/desafio-carrefour-verity/assets/pedido_corrompido.png" ]; then cp -f "/tmp/pedido_corrompido.png" assets/; fi
+docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image "/app/inputs/pedido_corrompido.png"
+ Container desafio-carrefour-verity-mcp-ocr-1  Running
+ Container desafio-carrefour-verity-postgres-db-1  Running
+ Container desafio-carrefour-verity-scheduling-api-1  Running
+ Container desafio-carrefour-verity-mcp-rag-1  Running
+ Container desafio-carrefour-verity-postgres-db-1  Waiting
+ Container desafio-carrefour-verity-postgres-db-1  Waiting
+ Container desafio-carrefour-verity-postgres-db-1  Healthy
+ Container desafio-carrefour-verity-postgres-db-1  Healthy
+Validando imagem e serviços...
+Imagem vazia ou com cabeçalho inválido; solicitação não registrada
+make: *** [Makefile:28: run-image] Erro 20
+
+exit code do make: 2 (o CLI real saiu com 20 — ver "Erro 20" acima)

@@ -1,0 +1,14 @@
+# Evidência 01 — Serviços no ar (docker compose ps)
+# Data: 15/11/2026 15:53:20 -03
+
+NAME                                        IMAGE                                     COMMAND                  SERVICE          CREATED          STATUS                    PORTS
+desafio-carrefour-verity-mcp-ocr-1          desafio-carrefour-verity-mcp-ocr          "python -m services.…"   mcp-ocr          13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:8001->8001/tcp
+desafio-carrefour-verity-mcp-rag-1          desafio-carrefour-verity-mcp-rag          "python -m services.…"   mcp-rag          13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:8002->8002/tcp
+desafio-carrefour-verity-postgres-db-1      pgvector/pgvector:pg16                    "docker-entrypoint.s…"   postgres-db      13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:5432->5432/tcp
+desafio-carrefour-verity-scheduling-api-1   desafio-carrefour-verity-scheduling-api   "uvicorn services.sc…"   scheduling-api   13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:8000->8000/tcp
+
+## Health checks individuais
+postgres-db: healthy
+mcp-ocr: healthy
+mcp-rag: healthy
+scheduling-api: healthy

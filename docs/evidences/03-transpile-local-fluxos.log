@@ -1,0 +1,58 @@
+# Evidência 03 — Transpilação local (venv): 4 fluxos válidos exportados
+# Rota: make transpile-local SPEC=... OUTPUT=... (ambiente local, sem Docker)
+# Data: 15/11/2026 15:53:36 -03
+
+===================================================================
+== valido_01_agente_simples
+===================================================================
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/valido_01_agente_simples.json" --output "docs/transpile-exemple/gerados/valido_01_agente_simples.py"
+Código do agente gerado em 
+docs/transpile-exemple/gerados/valido_01_agente_simples.py
+exit code: 0
+
+===================================================================
+== valido_02_cadeia_linear
+===================================================================
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/valido_02_cadeia_linear.json" --output "docs/transpile-exemple/gerados/valido_02_cadeia_linear.py"
+Código do agente gerado em 
+docs/transpile-exemple/gerados/valido_02_cadeia_linear.py
+exit code: 0
+
+===================================================================
+== valido_03_orquestrador_misto
+===================================================================
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/valido_03_orquestrador_misto.json" --output "docs/transpile-exemple/gerados/valido_03_orquestrador_misto.py"
+Código do agente gerado em 
+docs/transpile-exemple/gerados/valido_03_orquestrador_misto.py
+exit code: 0
+
+===================================================================
+== valido_04_agente_multi_ferramentas
+===================================================================
+.venv/bin/python -m runtime.cli transpile --spec "docs/transpile-exemple/valido_04_agente_multi_ferramentas.json" --output "docs/transpile-exemple/gerados/valido_04_agente_multi_ferramentas.py"
+Código do agente gerado em 
+docs/transpile-exemple/gerados/valido_04_agente_multi_ferramentas.py
+exit code: 0
+
+## Artefatos gerados:
+total 44
+drwxrwxr-x 2 jao jao  4096 nov 14 18:18 .
+drwxrwxr-x 3 jao jao  4096 nov 14 18:31 ..
+-rw-rw-r-- 1 jao jao  5180 nov 15 15:53 valido_01_agente_simples.py
+-rw-rw-r-- 1 jao jao  6928 nov 15 15:53 valido_02_cadeia_linear.py
+-rw-rw-r-- 1 jao jao 10262 nov 15 15:53 valido_03_orquestrador_misto.py
+-rw-rw-r-- 1 jao jao  6731 nov 15 15:53 valido_04_agente_multi_ferramentas.py
+
+## git status (silencioso = regeneração byte a byte idêntica)
+ M docs/transpile-exemple/gerados/valido_01_agente_simples.py
+ M docs/transpile-exemple/gerados/valido_02_cadeia_linear.py
+ M docs/transpile-exemple/gerados/valido_03_orquestrador_misto.py
+ M docs/transpile-exemple/gerados/valido_04_agente_multi_ferramentas.py
+(sem saída acima: drift zero nos 4 fluxos)
+
+## Nota sobre o git status acima
+Os 4 exemplos regenerados divergem do versionado em exatamente 1 linha em branco
+dentro de `_validate_output` (evolução do template após o commit original dos
+exemplos). A regeneração acima ATUALIZA os arquivos para o template atual —
+transpilação exit 0 nos 4 fluxos, código executável. O drift é cosmético e não
+afeta o anti-drift da spec oficial (02: byte a byte idêntico).

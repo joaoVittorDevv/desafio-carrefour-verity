@@ -1,0 +1,12 @@
+# Evidência 02 — Transpilação oficial via Docker (make transpile)
+# Spec: specs/clinical_agent_spec.json → runtime/generated/clinical_exam_scheduler_agent.py
+# Data: 15/11/2026 15:53:26 -03
+
+docker compose run --rm --no-deps agent-cli python -m runtime.cli transpile --spec /app/specs/clinical_agent_spec.json --output /app/runtime/generated/clinical_exam_scheduler_agent.py
+Código do agente gerado em 
+/app/runtime/generated/clinical_exam_scheduler_agent.py
+
+exit code: 0
+
+## git status de runtime/generated (silencioso = geração byte a byte idêntica ao versionado)
+(sem saída acima: drift zero)

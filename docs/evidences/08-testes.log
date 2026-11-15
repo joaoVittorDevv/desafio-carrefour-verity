@@ -1,0 +1,66 @@
+# Evidência 08 — Suíte completa de testes (pytest + cobertura + Ruff)
+# Comando exato do usuário:
+#   make test
+# Data: 15/11/2026 16:01:35 -03
+
+uv run --extra dev pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services
+........................................................................ [ 60%]
+................................................                         [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/jao/VSCode/desafio-carrefour-verity/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.9-final-0 ________________
+
+Name                                  Stmts   Miss  Cover
+---------------------------------------------------------
+runtime/__init__.py                       0      0   100%
+runtime/cli.py                          198     26    87%
+security/__init__.py                      2      0   100%
+security/adk_callbacks.py               145     13    91%
+security/pii_guardrail.py               100     14    86%
+services/__init__.py                      0      0   100%
+services/mcp_ocr/__init__.py              0      0   100%
+services/mcp_ocr/ocr_engine.py           53      8    85%
+services/mcp_ocr/server.py               37      5    86%
+services/mcp_rag/__init__.py              0      0   100%
+services/mcp_rag/hybrid_search.py        58      5    91%
+services/mcp_rag/seeder.py               22      1    95%
+services/mcp_rag/server.py               36      5    86%
+services/scheduling_api/__init__.py       0      0   100%
+services/scheduling_api/database.py       6      3    50%
+services/scheduling_api/main.py          43      3    93%
+services/scheduling_api/schemas.py       61      3    95%
+transpiler/__init__.py                    0      0   100%
+transpiler/compiler.py                   35      3    91%
+transpiler/schema.py                    131      9    93%
+---------------------------------------------------------
+TOTAL                                   927     98    89%
+120 passed, 1 warning in 4.95s
+
+exit code: 0
+
+## Ruff (lint + formato canônico)
+Comando: uv run ruff check . && uv run ruff format --check .
+
+Resultado detalhado:
+- Código-fonte (transpiler/, runtime/, security/, services/, tests/):
+  ruff check ....... exit code: 0 (0 erros de lint)
+  ruff format ...... exit code: 1 — 23 arquivos seriam reformatados.
+    Causa: drift de versão do Ruff. O fonte foi formatado com um Ruff mais
+    antigo; o uv resolve atualmente 0.15.22, cujo estilo difere apenas em
+    quebras de linha (ex.: chamadas longas em múltiplas linhas). Divergência
+    estritamente cosmética, sem erro de lint.
+    Follow-up sugerido: fixar a versão do Ruff no projeto e rodar
+    `ruff format` uma única vez para re-canonicalizar.
+
+- Repositório inteiro (ruff check .): 20 erros F401 (imports não usados),
+  TODOS em docs/transpile-exemple/gerados/*.py — exemplos expositivos gerados
+  cujo template sempre emite o cabeçalho completo de imports, mesmo para
+  specs sem MCP/OpenAPI (valido_01, por exemplo). Pré-existente, não afeta
+  o artefato oficial runtime/generated/, que passa limpo.
+  Follow-up sugerido: per-file-ignores de F401 para docs/**/gerados/*.py
+  no pyproject, ou imports condicionais no template.

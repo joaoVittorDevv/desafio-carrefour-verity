@@ -11,6 +11,7 @@ htmlcov/
 *.egg-info/
 dist/
 *.log
+!docs/evidences/*.log
 .pi/
 .playwright-cli/
 HANDOFF.md
