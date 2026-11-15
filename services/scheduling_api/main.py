@@ -11,7 +11,7 @@ from services.scheduling_api.database import get_connection
 from services.scheduling_api.schemas import AppointmentCreateRequest, AppointmentCreateResponse
 
 app = FastAPI(title="Synthetic Laboratory Registration API", version="1.0.0")
-PREPARATION = "Preparo simulado; confirme as orientações com a unidade."
+PREPARATION = "Confirme as orientações de preparo com a unidade selecionada."
 
 
 def new_protocol_id() -> str:

@@ -126,6 +126,23 @@ INPUT_KEYS = {
 
 def _validate_output(key):
     def callback(callback_context):
+
+        if key == "booking_result":
+            # A verified POST is the registration evidence itself; the final LLM text is
+            # never parsed, so transcription drift cannot fail an already committed POST.
+            verified = callback_context.state.get("_booking_verified")
+            if not isinstance(verified, dict):
+                raise AgentPipelineExecutionError("Booking output lacks verified API response")
+            try:
+                result = OUTPUT_SCHEMAS[key].model_validate(verified)
+            except (ValidationError, ValueError, TypeError):
+                raise AgentPipelineExecutionError(
+                    "Booking output lacks verified API response"
+                ) from None
+            # Byte-identical dump of the raw evidence keeps the CLI confirmation equality intact.
+            callback_context.state[key] = result.model_dump(mode="json")
+            return None
+
         value = callback_context.state.get(key)
         try:
             schema = OUTPUT_SCHEMAS[key]
@@ -175,10 +192,6 @@ def _validate_output(key):
             if output != callback_context.state.get("_rag_verified"):
                 raise AgentPipelineExecutionError("RAG output lacks verified tool evidence")
             require_complete_order(callback_context.state.get("extracted_exams"), output)
-
-        if key == "booking_result":
-            if output != callback_context.state.get("_booking_verified"):
-                raise AgentPipelineExecutionError("Booking output lacks verified API response")
 
         callback_context.state[key] = output
         return None
@@ -292,7 +305,8 @@ def build_pipeline():
             model="gemini-2.5-flash",
             instruction="Você coordena o registro fictício apenas de pedidos digitados completos. Receba o JSON estruturado ResolvedExamsListOutput. Se houver qualquer unmatched_terms ou se a lista matched_exams estiver vazia, não invoque a API. Caso contrário invoque create_exam_appointment com todos os matched_exams exatamente como recebidos e unmatched_terms vazio. SEMPRE invoque a ferramenta antes de responder; não simule resposta. Responda SOMENTE com JSON válido, sem cercas: reproduza a resposta completa da API EXATAMENTE como retornada, sem inventar exames, códigos nem horários. CONFIRMED é registro, não reserva de horário.",
             output_key="booking_result",
-            output_schema=BookingConfirmationOutput,
+            # No output_schema kwarg: the ADK validates the final LLM text against it mid-stream and a
+            # flaky model echo aborts the turn; the booking contract is the verified tool evidence instead.
             include_contents="none",
             tools=[
                 OpenAPIToolset(

@@ -38,6 +38,40 @@ def test_confirmation_requires_complete_exact_evidence():
             validate_confirmation(invalid)
 
 
+def test_booking_output_is_verified_evidence_regardless_of_llm_text():
+    """O booking gravado é a evidência verificada da tool; o texto final do LLM não é parseado."""
+    import runtime.generated.clinical_exam_scheduler_agent as generated
+
+    exam = dict(original_query="Hemograma", tuss_code="MOCK-0001",
+                official_name="Hemograma Completo (simulado)", category="Hematologia",
+                fasting_hours=0, confidence_score=0.92)
+    verified = {"protocol_id": "LAB-2026-11-15-ABCDEFGHIJ", "status": "CONFIRMED",
+                "scheduled_at": "2026-11-15T14:55:29.279266+00:00",
+                "preferred_unit": "Unidade Central - Matriz", "max_fasting_hours_required": 0,
+                "preparation_summary": "Confirme as orientações de preparo com a unidade selecionada.",
+                "total_exams_scheduled": 1, "scheduled_exams": [exam], "unmatched_terms": []}
+    callback = generated._validate_output("booking_result")
+    # Texto do LLM ausente ou lixo absoluto: a evidência verificada vira o próprio registro.
+    for llm_text in ("não consegui", "```json\n{\"protocol_id\": \"LAB-OUTRO\"}\n```"):
+        context = types.SimpleNamespace(state={"booking_result": llm_text,
+                                               "_booking_verified": copy.deepcopy(verified)})
+        assert callback(context) is None
+        # Byte-idêntico à evidência; validate_confirmation (cli.py) segue comparando byte-a-byte.
+        assert context.state["booking_result"] == verified
+    absent_text = types.SimpleNamespace(state={"_booking_verified": copy.deepcopy(verified)})
+    assert callback(absent_text) is None
+    assert absent_text.state["booking_result"] == verified
+    missing_evidence = types.SimpleNamespace(state={"booking_result": dict(verified),
+                                                    "_booking_verified": None})
+    with pytest.raises(generated.AgentPipelineExecutionError):
+        callback(missing_evidence)
+    malformed = types.SimpleNamespace(state={
+        "booking_result": dict(verified),
+        "_booking_verified": {k: v for k, v in verified.items() if k != "preparation_summary"}})
+    with pytest.raises(generated.AgentPipelineExecutionError):
+        callback(malformed)
+
+
 def test_check_image_rejects_traversal_and_bad_header(tmp_path):
     volume = tmp_path / "inputs"
     volume.mkdir()

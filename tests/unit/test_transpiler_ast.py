@@ -14,6 +14,16 @@ from transpiler.schema import PipelineSpec
 SPEC = Path("specs/clinical_agent_spec.json")
 
 
+def _llm_agent_kwargs(tree):
+    """Map each generated LlmAgent name to its keyword names, as built in build_pipeline."""
+    agents = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "LlmAgent":
+            agents[next(kw.value.value for kw in node.keywords if kw.arg == "name")] = {
+                kw.arg for kw in node.keywords if kw.arg}
+    return agents
+
+
 def test_compile_spec_ast_imports_and_escaped_literals(tmp_path):
     data = json.loads(SPEC.read_text())
     data["orchestration"]["agents"][0]["instruction"] = "quoted ' \" \\ \\n and new line\nnot_code = 1"
@@ -29,6 +39,13 @@ def test_compile_spec_ast_imports_and_escaped_literals(tmp_path):
     assert 'after_tool_callback=after_tool_callback' in code
     # ruff format normalizes quotes, so the compiled contract uses double quotes.
     assert 'output_schema=' in code and 'include_contents="none"' in code
+    # Emenda 2: the ADK validates the final LLM text against output_schema mid-stream, so the
+    # booking agent (contract enforced via verified tool evidence) omits the kwarg; OCR/RAG keep it.
+    agents = _llm_agent_kwargs(tree)
+    assert agents.keys() == {"ocr_intake_agent", "rag_lookup_agent", "scheduling_agent"}
+    assert "output_schema" not in agents["scheduling_agent"]
+    assert "output_schema" in agents["ocr_intake_agent"]
+    assert "output_schema" in agents["rag_lookup_agent"]
     assert 'before_agent_callback=_validate_input(' in code
     assert 'INPUT_SCHEMAS' in code and 'INPUT_KEYS' in code
     output = tmp_path / "agent.py"

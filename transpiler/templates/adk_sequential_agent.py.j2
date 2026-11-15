@@ -52,8 +52,25 @@ INPUT_KEYS = {
 {% endif %}
 
 
+{% set booking = spec.orchestration.agents[-1] %}
 def _validate_output(key):
     def callback(callback_context):
+{% if 'create_exam_appointment' in (booking.openapi_bindings | map(attribute='allowed_operations') | sum(start=[])) and 'scheduled_exams' in spec.schemas[booking.output_schema_ref].fields %}
+        if key == {{ booking.output_key | pyrepr }}:
+            # A verified POST is the registration evidence itself; the final LLM text is
+            # never parsed, so transcription drift cannot fail an already committed POST.
+            verified = callback_context.state.get('_booking_verified')
+            if not isinstance(verified, dict):
+                raise AgentPipelineExecutionError("Booking output lacks verified API response")
+            try:
+                result = OUTPUT_SCHEMAS[key].model_validate(verified)
+            except (ValidationError, ValueError, TypeError):
+                raise AgentPipelineExecutionError(
+                    "Booking output lacks verified API response") from None
+            # Byte-identical dump of the raw evidence keeps the CLI confirmation equality intact.
+            callback_context.state[key] = result.model_dump(mode="json")
+            return None
+{% endif %}
         value = callback_context.state.get(key)
         try:
             schema = OUTPUT_SCHEMAS[key]
@@ -94,12 +111,6 @@ def _validate_output(key):
                 raise AgentPipelineExecutionError("RAG output lacks verified tool evidence")
             require_complete_order(callback_context.state.get({{ first.output_key | pyrepr }}), output)
 {% endif %}
-{% endif %}
-{% set booking = spec.orchestration.agents[-1] %}
-{% if 'create_exam_appointment' in (booking.openapi_bindings | map(attribute='allowed_operations') | sum(start=[])) and 'scheduled_exams' in spec.schemas[booking.output_schema_ref].fields %}
-        if key == {{ booking.output_key | pyrepr }}:
-            if output != callback_context.state.get('_booking_verified'):
-                raise AgentPipelineExecutionError("Booking output lacks verified API response")
 {% endif %}
         callback_context.state[key] = output
         return None
@@ -159,12 +170,18 @@ def build_pipeline():
 {% endfor %}
     agents = []
 {% for agent in spec.orchestration.agents %}
+{% set is_booking = 'create_exam_appointment' in (agent.openapi_bindings | map(attribute='allowed_operations') | sum(start=[])) %}
     agents.append(LlmAgent(
         name={{ agent.name | pyrepr }},
         model={{ agent.model | pyrepr }},
         instruction={{ agent.instruction | pyrepr }},
         output_key={{ agent.output_key | pyrepr }},
+{% if is_booking %}
+        # No output_schema kwarg: the ADK validates the final LLM text against it mid-stream and a
+        # flaky model echo aborts the turn; the booking contract is the verified tool evidence instead.
+{% else %}
         output_schema={{ agent.output_schema_ref }},
+{% endif %}
         include_contents={{ agent.include_contents | pyrepr }},
         tools=[
 {% for binding in agent.mcp_bindings %}

@@ -20,8 +20,13 @@ PII_PATTERNS = (
     re.compile(r"\b(?:CPF|RG|CNS|telefone|celular|tel)\s*:\s*(?!\[REDACTED_[A-Z]+\])\S+", re.I),
 )
 
+MOCK_TUSS_CODE = re.compile(r"MOCK-\d{4}")
+
 
 def no_pii(value: str) -> str:
+    # Catalog codes ("MOCK-0031") are synthetic identifiers the pt-BR NER falsely flags as PERSON.
+    if MOCK_TUSS_CODE.fullmatch(value):
+        return value
     if any(pattern.search(value) for pattern in PII_PATTERNS):
         raise ValueError("Sensitive personal data is not accepted")
     try:

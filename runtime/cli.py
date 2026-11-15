@@ -178,8 +178,8 @@ async def execute_pipeline(module_name: str, image: Path):
     message = types.Content(role="user", parts=[types.Part(text=f"Process file_path: {image}")])
     stages = {
         "ocr_intake_agent": "Extraindo exames e protegendo dados pessoais",
-        "rag_lookup_agent": "Conferindo exames no catálogo fictício",
-        "scheduling_agent": "Registrando a solicitação fictícia",
+        "rag_lookup_agent": "Conferindo exames no catálogo",
+        "scheduling_agent": "Registrando a solicitação",
     }
     current = "ocr_intake_agent"
     console.print(f"Iniciando: {stages[current]}...")
@@ -279,8 +279,8 @@ def run(
     situation = "confirmada"
     console.print(f"Protocolo: {booking['protocol_id']} (solicitação {situation}); registrada em {booking['scheduled_at']} (não é uma reserva de horário).")
     for item in booking["scheduled_exams"]:
-        console.print(f"Registrado: {item['official_name']} ({item['tuss_code']} fictício)")
-    console.print(f"Preparo simulado: {booking['preparation_summary']}")
+        console.print(f"Registrado: {item['official_name'].removesuffix(' (simulado)')} (código {item['tuss_code']})")
+    console.print(f"Preparo: {booking['preparation_summary']}")
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ run:
 run-image:
 	@test -n "$(IMAGE)" || { echo 'Uso: make run-image IMAGE=/caminho/na/sua/maquina/pedido.png'; exit 2; }
 	@test -f "$(IMAGE)" || { echo "Imagem não encontrada: $(IMAGE)"; exit 2; }
-	cp -f "$(IMAGE)" assets/
+	if [ "$(abspath $(IMAGE))" != "$(abspath assets/$(notdir $(IMAGE)))" ]; then cp -f "$(IMAGE)" assets/; fi
 	docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image "/app/inputs/$(notdir $(IMAGE))"
 test:
 	uv run --extra dev pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services

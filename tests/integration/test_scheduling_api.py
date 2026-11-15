@@ -213,6 +213,42 @@ def test_no_pii_allows_catalog_exam_names_but_rejects_person(monkeypatch):
         schemas.no_pii("Carlos Eduardo Albuquerque")
 
 
+class PersonRecognizerFlagsEverything:
+    """Stand-in for the pt-BR PERSON recognizer, which classifies even synthetic
+    catalog codes ("MOCK-0031") as a person name — confirmed false positive."""
+
+    def analyze(self, text, language, entities):
+        return [SimpleNamespace(start=0, end=len(text))]
+
+
+def test_mock_tuss_code_is_not_treated_as_person(monkeypatch):
+    """Regression: the API returned 422 for exams[].tuss_code "MOCK-0031" because
+    the pt-BR PERSON recognizer classifies the synthetic catalog code as a name."""
+    monkeypatch.setattr(schemas, "local_analyzer", lambda: PersonRecognizerFlagsEverything())
+    assert schemas.no_pii("MOCK-0031") == "MOCK-0031"
+    # Only the exact catalog pattern is exempt; near-misses stay rejected.
+    with pytest.raises(ValueError):
+        schemas.no_pii("MOCK-00311")
+    with pytest.raises(ValueError):
+        schemas.no_pii("MOCK-0031; Paciente: Ada Silva")
+    # The same recognizer must still reject an actual person name.
+    with pytest.raises(ValueError):
+        schemas.no_pii("Carlos Eduardo Albuquerque")
+
+
+def test_no_pii_accepts_every_catalog_tuss_code(monkeypatch):
+    """Regression sweep: no tuss_code shipped in the catalog may be rejected."""
+    import json
+    from pathlib import Path
+
+    catalog = Path(__file__).resolve().parents[2] / "services" / "mcp_rag" / "data"
+    records = json.loads((catalog / "tuss_exams_catalog.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(schemas, "local_analyzer", lambda: PersonRecognizerFlagsEverything())
+    assert records, "the catalog sweep needs at least one record"
+    for record in records:
+        assert schemas.no_pii(record["tuss_code"]) == record["tuss_code"]
+
+
 def test_generated_protocol_never_triggers_brazilian_pii_regexes():
     from security.pii_guardrail import assert_no_pii
     from services.scheduling_api.main import new_protocol_id

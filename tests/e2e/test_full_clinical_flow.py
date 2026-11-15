@@ -48,7 +48,7 @@ def test_complete_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
             "protocol_id": "LAB-MOCK", "status": "CONFIRMED",
             "scheduled_at": "2026-11-12T19:45:00Z", "preferred_unit": "Unidade Central",
             "max_fasting_hours_required": 0,
-            "preparation_summary": "Preparo simulado",
+            "preparation_summary": "Confirme as orientações de preparo com a unidade selecionada.",
             "total_exams_scheduled": 1,
             "scheduled_exams": result["matched_exams"],
             "unmatched_terms": result["unmatched_terms"],
@@ -104,9 +104,10 @@ def test_complete_flow_and_blocked_cases_are_mocked(monkeypatch, tmp_path):
     assert result["unmatched_terms"] == []
     assert calls == {"ocr": 1, "rag": 1, "api": 1}
     text = output.getvalue()
-    for step in ("Extraindo exames e protegendo dados pessoais", "Conferindo exames no catálogo fictício",
-                 "Registrando a solicitação fictícia"):
+    for step in ("Extraindo exames e protegendo dados pessoais", "Conferindo exames no catálogo",
+                 "Registrando a solicitação"):
         assert text.count(f"✓ {step}") == 1
+    assert "fictício" not in text and "simulado" not in text
     assert text.index("✓ Extraindo") < text.index("✓ Conferindo") < text.index("✓ Registrando")
     assert text.index("Iniciando: Conferindo") < text.index("✓ Conferindo")
     assert "Conferindo o resultado do registro" in text
