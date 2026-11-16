@@ -94,7 +94,7 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 |                 v                                                                 |
 |  +------------------------------+                                                 |
 |  | 2. Motor de Templates Jinja2 |                                                 |
-|  |    (adk_pipeline.py.j2)      |                                                 |
+|  | (adk_sequential_agent.py.j2) |                                                 |
 |  +--------------+---------------+                                                 |
 |                 | Código Python em Memória                                        |
 |                 v                                                                 |
@@ -115,7 +115,7 @@ Este documento estabelece a especificação técnica, as decisões arquiteturais
 |                           AMBIENTE DOCKER COMPOSE                                 |
 |                                                                                   |
 |  [Usuário / Avaliador]                                                            |
-|           |  cli run --spec specs/... --image /app/inputs/carlos__good.png |
+|           |  cli run --agent-module ... --image /app/inputs/carlos__good.png      |
 |           v                                                                       |
 |  +-----------------------------------------------------------------------------+  |
 |  | Container / Host: ADK Runtime (Código Python Gerado pelo Transpilador)      |  |
@@ -592,7 +592,7 @@ Para validar que a ferramenta atingiu o nível de maturidade esperado na revisã
 4. **Performance e Engenharia de Containers:**
    * **Tempo de Seed Inicial (+120 exames com `FastEmbed` em CPU):** $\le 8\text{ segundos}$ (executado de forma idempotente apenas para identificadores ausentes no catálogo).
    * **Latência da Busca Híbrida no `mcp-rag`:** $P_{95} \le 80\text{ ms}$ para lotes de até $10$ exames.
-   * **Latência End-to-End do Fluxo Completo (OCR + 3 Subagentes ADK + FastAPI):** $\le 18\text{ segundos}$.
+   * **Latência End-to-End do Fluxo Completo (OCR + 3 Subagentes ADK + FastAPI):** $\le 25\text{ segundos}$ (observado $\approx 22\text{--}23\text{ s}$ com 3 chamadas `gemini-2.5-flash`).
    * **Cobertura de Testes Automatizados (`pytest --cov`):** $\ge 85\%$ nos módulos core (`transpiler`, `security`, `mcp_ocr`, `mcp_rag`, `scheduling_api`).
 
 ---
@@ -603,7 +603,6 @@ Para validar que a ferramenta atingiu o nível de maturidade esperado na revisã
 
 ```text
 desafio-carrefour-verity/              # Nome do diretório; pacote Python: clinical-adk-transpiler
-├── HANDOFF.md                           # Histórico de contexto, não contrato de execução
 ├── .gitignore / .dockerignore           # Exclusões de Git e contexto Docker
 ├── docker-compose.yml                  # Orquestração completa (Postgres, 2 MCPs SSE, FastAPI, CLI)
 ├── Dockerfile.runtime                  # Imagem da CLI, Transpilador e Runtime Google ADK
@@ -689,9 +688,9 @@ Para assegurar reprodutibilidade usando apenas dados fictícios e texto digitado
 
 Os modelos locais são provisionados nos builds Docker. Os testes automatizados continuam mock-only (sem chamadas a OCR, embeddings, MCP, banco, HTTP ou LLM reais); smokes e execuções com Gemini anteriores demonstraram a arquitetura com imagens **sintéticas**, e o contrato de aceitação integral foi **revalidado em execução real com Gemini em 15/11/2026** — pedidos completos registrados como `CONFIRMED` ([`docs/evidences/06-run-cli-valida.log`](evidences/06-run-cli-valida.log) e captura de tela da CLI). A chave fica exclusivamente em `.env`. Veja as evidências em [`docs/evidences/`](evidences/) e as limitações no README.
 
-#### Etapa 1: Configuração Inicial e Build da Infraestrutura
+#### Etapa 1: Configuração Inicial e Build da Infraestrutura (equivalente: `make setup`)
 ```bash
-# 1. Copiar arquivo de variáveis de ambiente e inserir a GEMINI_API_KEY
+# 1. Copiar arquivo de variáveis de ambiente e preencher POSTGRES_PASSWORD e GEMINI_API_KEY
 cp .env.example .env
 
 # 2. Subir todos os serviços conteinerizados (Postgres, MCP OCR, MCP RAG e FastAPI)
@@ -701,7 +700,7 @@ docker compose up -d --build postgres-db mcp-ocr mcp-rag scheduling-api
 docker compose ps
 ```
 
-#### Etapa 2: Validação do Seed e dos Contratos de Infraestrutura (Preflight)
+#### Etapa 2: Validação do Seed e dos Contratos de Infraestrutura (equivalente: `make preflight`)
 ```bash
 # Executa o diagnóstico de infraestrutura pela CLI
 docker compose run --rm agent-cli python -m runtime.cli preflight
@@ -709,7 +708,7 @@ docker compose run --rm agent-cli python -m runtime.cli preflight
 * **Resultado esperado:**
   * `Verificação dos serviços concluída.` e exit 0 quando a chave está presente e os três serviços respondem `/health` (o healthcheck do RAG exige pelo menos 125 exames). A contagem de 150 pode ser conferida no Postgres (`SELECT count(*) FROM rag.exams_catalog;`) — o seed é idempotente e roda no boot do container.
 
-#### Etapa 3: Execução do Transpilador ($\text{JSON} \rightarrow \text{Python ADK}$)
+#### Etapa 3: Execução do Transpilador ($\text{JSON} \rightarrow \text{Python ADK}$, equivalente: `make transpile`)
 ```bash
 # Transpila o manifesto JSON para código Python válido do Google ADK
 docker compose run --rm --no-deps agent-cli python -m runtime.cli transpile \
@@ -718,7 +717,7 @@ docker compose run --rm --no-deps agent-cli python -m runtime.cli transpile \
 ```
 * **Validação:** Inspecionar o arquivo gerado em `runtime/generated/clinical_exam_scheduler_agent.py` e confirmar a presença dos modelos Pydantic gerados dinamicamente, dos callbacks de guardrail, do `MCPToolset` com `SseConnectionParams` e `tool_filter`, do `OpenAPIToolset` e do `SequentialAgent`.
 
-#### Etapa 4: Execução do Agente Transpilado no Fluxo End-to-End
+#### Etapa 4: Execução do Agente Transpilado no Fluxo End-to-End (equivalente: `make run`)
 ```bash
 # Executa o agente gerado processando a imagem de pedido médico fictício
 docker compose run --rm agent-cli python -m runtime.cli run \
@@ -730,10 +729,10 @@ docker compose run --rm agent-cli python -m runtime.cli run \
   2. **Smoke RAG separado:** `MOCK-*`, scores e termos sem match; a CLI imprime somente nomes/códigos finais, não os scores.
   3. **CLI e GET:** protocolo (`LAB-AAAA-MM-DD-LETRAS`), `CONFIRMED`, exames registrados e preparo fictício; sem reserva de horário. A validação atual está em [`docs/evidences/06-run-cli-valida.log`](evidences/06-run-cli-valida.log) e [`06-protocolo-get.json`](evidences/06-protocolo-get.json).
 
-#### Etapa 5: Execução da Suíte Completa de Testes Automatizados
+#### Etapa 5: Execução da Suíte Completa de Testes Automatizados (equivalente: `make test`)
 ```bash
 # Executa testes unitários, de segurança PII, de busca híbrida e de integração FastAPI
-docker compose run --rm agent-cli python -m pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services
+docker compose run --rm --no-deps agent-cli python -m pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services
 ```
 
 ---

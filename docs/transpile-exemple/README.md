@@ -10,7 +10,7 @@ make transpile-local SPEC=docs/transpile-exemple/valido_01_agente_simples.json O
 make transpile-local SPEC=docs/transpile-exemple/invalido_04_pii_desativado.json OUTPUT=docs/transpile-exemple/gerados/NAO_DEVE_EXISTIR.py
 ```
 
-Observações: os caminhos válidos usam `OUTPUT` próprio em `gerados/` para não sobrescrever o artefato clínico versionado em `runtime/generated/` (protegido pelo drift test). Ao rodar via `make`, o make reporta "Erro 2" quando o transpile falha — o exit code real da CLI é o 10 documentado no README do projeto. Todos os dados são fictícios.
+Observações: os caminhos válidos usam `OUTPUT` próprio em `gerados/` para não sobrescrever o artefato clínico versionado em `runtime/generated/` (protegido pelo drift test). Ao rodar via `make`, o código de saída real da CLI é **10** (exibido pelo Make como `Erro 10`, enquanto o processo `make` retorna status `2` ao shell). Todos os dados são fictícios.
 
 ## Especificações válidas
 

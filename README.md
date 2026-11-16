@@ -116,7 +116,13 @@ Duas formas de preparar o ambiente, ambas pelo Makefile:
 | `make setup`       | Uso completo em **Docker** (aplicação inteira, CLI inclusa) | Constrói as imagens (`build`), sobe os containers (`up`) e executa o preflight                          |
 | `make setup-local` | Trabalhar com o **transpilador localmente**                 | Cria `.venv` via uv (Python 3.12) e instala `.[dev]`; permite transpilar arquivos do próprio computador |
 
-O `make setup` exige copiar `.env.example` para `.env` com `POSTGRES_PASSWORD` e `GEMINI_API_KEY`. A chave é usada **somente no `run` real**; não a imprima, não a coloque em código ou commits — `.env` é ignorado pelo Git e excluído do contexto Docker. Os modelos locais (spaCy `pt_core_news_sm` + Presidio no OCR/API; E5-small ONNX no RAG) são baixados durante o build das imagens.
+Antes de rodar `make setup`, crie o arquivo `.env` a partir do template e preencha `POSTGRES_PASSWORD` e `GEMINI_API_KEY`:
+
+```bash
+cp .env.example .env
+```
+
+O `preflight` (incluído ao final do `make setup`) valida que `GEMINI_API_KEY` está definida no `.env`, mas chamadas reais à API do Gemini acontecem **somente no `make run` / `make run-image`** (transpilação e testes são 100% offline). Não imprima a chave nem a coloque em código ou commits — `.env` é ignorado pelo Git e excluído do contexto Docker. Os modelos locais (spaCy `pt_core_news_sm` + Presidio no OCR/API; E5-small ONNX no RAG) são baixados durante o build das imagens.
 
 ## Transpilação
 
@@ -157,7 +163,7 @@ make transpile
 
 Transpila o JSON do projeto (`specs/clinical_agent_spec.json`) direto para o caminho que o container consome (`runtime/generated/...`). Não usa o fluxo local: executa dentro do container `agent-cli` com `--no-deps` (codegen puro, sem subir os outros serviços).
 
-> Ao rodar via `make`, um erro de especificação aparece como "Erro 2" do make; o **exit code real da CLI é 10**, com a mensagem do validador.
+> Ao rodar via `make`, o código de saída real da CLI é **10** (exibido pelo Make na linha final como `Erro 10`, embora o próprio processo `make` retorne status `2` ao shell).
 
 ## Containers e execução
 
@@ -180,7 +186,7 @@ make stop | make down
 make test   # suíte mock-only: não exige chave, rede, banco, OCR ou pesos
 ```
 
-Cobre o transpilador (schema, AST, CLI), os serviços com fakes/mocks e o **drift-guard**, que recompila a spec e compara byte a byte com o artefato commitado — qualquer edição manual no código gerado quebra o teste. O e2e da suíte é **simulado** (não prova o fluxo real); a prova real está nas evidências abaixo. Verificação alternativa em imagem: `docker compose build agent-cli` + `docker run --rm desafio-carrefour-verity-agent-cli python -m pytest -q`.
+Cobre o transpilador (schema, AST, CLI), os serviços com fakes/mocks e o **drift-guard**, que recompila a spec e compara byte a byte com o artefato commitado — qualquer edição manual no código gerado quebra o teste. O e2e da suíte é **simulado** (não prova o fluxo real); a prova real está nas evidências abaixo. O `make test` usa `.venv`/`uv` quando disponíveis no host ou executa automaticamente dentro do container `agent-cli`. Para forçar a execução isolada no container: `docker compose run --rm --no-deps agent-cli python -m pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services`.
 
 ## Evidências de funcionamento
 
