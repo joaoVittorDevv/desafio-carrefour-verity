@@ -1,5 +1,0 @@
-NAME                                        IMAGE                                     COMMAND                  SERVICE          CREATED          STATUS                    PORTS
-desafio-carrefour-verity-mcp-ocr-1          desafio-carrefour-verity-mcp-ocr          "python -m services.…"   mcp-ocr          20 minutes ago   Up 20 minutes (healthy)   127.0.0.1:8001->8001/tcp
-desafio-carrefour-verity-mcp-rag-1          desafio-carrefour-verity-mcp-rag          "python -m services.…"   mcp-rag          38 minutes ago   Up 38 minutes (healthy)   127.0.0.1:8002->8002/tcp
-desafio-carrefour-verity-postgres-db-1      pgvector/pgvector:pg16                    "docker-entrypoint.s…"   postgres-db      12 hours ago     Up 38 minutes (healthy)   127.0.0.1:5432->5432/tcp
-desafio-carrefour-verity-scheduling-api-1   desafio-carrefour-verity-scheduling-api   "uvicorn services.sc…"   scheduling-api   7 minutes ago    Up 7 minutes (healthy)    127.0.0.1:8000->8000/tcp
