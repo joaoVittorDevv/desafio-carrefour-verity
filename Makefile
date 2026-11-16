@@ -27,7 +27,13 @@ run-image:
 	if [ "$(abspath $(IMAGE))" != "$(abspath assets/$(notdir $(IMAGE)))" ]; then cp -f "$(IMAGE)" assets/; fi
 	docker compose run --rm agent-cli python -m runtime.cli run --agent-module runtime.generated.clinical_exam_scheduler_agent --image "/app/inputs/$(notdir $(IMAGE))"
 test:
-	uv run --extra dev pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services
+	@if [ -x .venv/bin/python ]; then \
+		.venv/bin/python -m pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services; \
+	elif command -v uv >/dev/null 2>&1; then \
+		uv run --extra dev pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services; \
+	else \
+		docker compose run --rm --no-deps agent-cli python -m pytest -q --cov=transpiler --cov=runtime --cov=security --cov=services; \
+	fi
 logs:
 	docker compose logs --tail=100 -f
 stop:

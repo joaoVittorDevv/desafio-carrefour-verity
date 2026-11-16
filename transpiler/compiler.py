@@ -2,6 +2,7 @@
 
 import ast
 import subprocess
+import sys
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -33,7 +34,7 @@ def compile_spec(spec: PipelineSpec) -> str:
         code = env.get_template("adk_sequential_agent.py.j2").render(spec=spec)
         ast.parse(code)
         formatted = subprocess.run(
-            ["ruff", "format", "--stdin-filename", "generated.py", "-"],
+            [sys.executable, "-m", "ruff", "format", "--stdin-filename", "generated.py", "-"],
             input=code, capture_output=True, text=True, check=True,
         )
         code = formatted.stdout
